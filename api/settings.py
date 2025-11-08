@@ -49,6 +49,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -131,3 +132,32 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Tell Django to use our custom User model
 AUTH_USER_MODEL = 'users.User'
+# In api/settings.py (at the very bottom)
+
+# --- CORS Configuration ---
+# This is our "guest list" of trusted frontend domains.
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  # Our React dev server
+]
+
+
+# --- DRF Configuration ---
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # We tell DRF to use SimpleJWT for authentication
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
+
+
+# --- SimpleJWT Configuration ---
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    # Set the lifetime of the access token
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    
+    # This setting tells SimpleJWT to use our AUTH_USER_MODEL
+    'AUTH_USER_MODEL': AUTH_USER_MODEL,
+}
