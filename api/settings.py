@@ -161,3 +161,12 @@ SIMPLE_JWT = {
     # This setting tells SimpleJWT to use our AUTH_USER_MODEL
     'AUTH_USER_MODEL': AUTH_USER_MODEL,
 }
+# In api/settings.py (at the very bottom)
+
+# --- Custom Authentication Backend ---
+# This tells Django to use our new EmailOrUsernameBackend
+# as the *first* method of authentication.
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailOrUsernameBackend',
+    'django.contrib.auth.backends.ModelBackend', # The default one, as a fallback
+]
