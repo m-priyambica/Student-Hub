@@ -1,10 +1,18 @@
-# In users/urls.py (A NEW FILE)
+# In users/urls.py (UPDATED)
 
 from django.urls import path
 from .views import RegisterView
 
+# Import the pre-built view from SimpleJWT
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+)
+
 urlpatterns = [
-    # This is the "phone number" for our RegisterView
-    # The full URL will be /api/auth/register/
+    # .../api/auth/register/
     path('register/', RegisterView.as_view(), name='register'),
+    
+    # This is our new line
+    # .../api/auth/login/
+    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
 ]
