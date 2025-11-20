@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     # Our local apps
     'users',
     'products',
+    'cloudinary_storage', 
+    'cloudinary',
     # Django default apps
     'django.contrib.admin',
     'django.contrib.auth',
@@ -147,6 +149,7 @@ CORS_ALLOWED_ORIGINS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # We tell DRF to use SimpleJWT for authentication
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
@@ -181,4 +184,16 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')      # Reads from .env
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')  # Reads from .env
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER                     # Use your login as the 'from' email
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER 
+
+# In api/settings.py (At the very bottom)
+
+# --- Cloudinary Configuration ---
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+# Tell Django to store media (images) in Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'                 # Use your login as the 'from' email

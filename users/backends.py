@@ -30,6 +30,12 @@ class EmailOrUsernameBackend(BaseBackend):
 
         # If a user is found, check if the password is correct
         if user.check_password(password):
+            # --- NEW: The Strict Check ---
+            # If email is NOT verified, refuse login.
+            # This blocks them from the API Token AND the Admin Panel.
+            if not user.is_email_verified:
+                return None 
+            # -----------------------------
             return user  # Authentication successful
         
         return None  # Password was incorrect

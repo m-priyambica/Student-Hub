@@ -81,3 +81,12 @@ class OneTimePassword(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.code}"
+# In users/models.py (Update this class at the bottom)
+
+class OneTimePassword(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True) # <--- New Timestamp
+
+    def __str__(self):
+        return f"{self.user.username} - {self.code}"
