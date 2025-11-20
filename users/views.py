@@ -54,3 +54,42 @@ class RegisterView(generics.CreateAPIView):
         recipient_list = [user.email]
         
         send_mail(subject, message, email_from, recipient_list)
+
+# In users/views.py (Add this class to the bottom)
+
+# ... (Your RegisterView is above this) ...
+
+class VerifyEmailView(generics.GenericAPIView):
+    serializer_class = UserRegisterSerializer # Just a placeholder to satisfy GenericAPIView
+    permission_classes = [AllowAny] # Public access needed
+
+    def post(self, request):
+        otp_code = request.data.get('otp')
+        
+        try:
+            # 1. Find the OTP object in the database
+            otp_obj = OneTimePassword.objects.get(code=otp_code)
+            
+            # 2. Get the User associated with this OTP
+            user = otp_obj.user
+            
+            # 3. Verify the user
+            if not user.is_email_verified:
+                user.is_email_verified = True
+                user.save()
+                
+                # 4. Delete the OTP (it's single-use)
+                otp_obj.delete()
+                
+                return Response({
+                    'message': 'Account verified successfully!'
+                }, status=status.HTTP_200_OK)
+            
+            return Response({
+                'message': 'User is already verified.'
+            }, status=status.HTTP_204_NO_CONTENT)
+            
+        except OneTimePassword.DoesNotExist:
+            return Response({
+                'message': 'Passcode not provided or invalid.'
+            }, status=status.HTTP_404_NOT_FOUND)

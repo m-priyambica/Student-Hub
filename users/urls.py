@@ -15,4 +15,7 @@ urlpatterns = [
     # This is our new line
     # .../api/auth/login/
     path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+
+    # New URL for verification
+    path('verify-email/', VerifyEmailView.as_view(), name='verify_email'),
 ]
