@@ -40,3 +40,12 @@ class User(AbstractUser):
         A string representation of the user (e.g., in the admin panel).
         """
         return self.username
+
+# In users/models.py (Append this to the end of the file)
+
+class OneTimePassword(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    code = models.CharField(max_length=6, unique=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.code}"
