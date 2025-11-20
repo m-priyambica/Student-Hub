@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User
+from .models import User,OneTimePassword
 
 class CustomUserAdmin(UserAdmin):
     """
@@ -38,3 +38,4 @@ class CustomUserAdmin(UserAdmin):
 
 # Register your models here.
 admin.site.register(User, CustomUserAdmin)
+admin.site.register(OneTimePassword)
