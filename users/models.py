@@ -1,48 +1,80 @@
-# In users/models.py
+# In users/models.py (UPDATED for Random Default + Notice)
 
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+import random # Import random to pick a default question
+
+# --- Helper function to pick a random question ---
+def get_random_question():
+    questions = [
+        'nick_name', 'first_pet', 'first_school', 'favorite_book', 'birth_city'
+    ]
+    return random.choice(questions)
 
 class User(AbstractUser):
     """
-    Our Custom User Model, extending Django's default.
-    We will use 'username' as the main login field,
-    but we make 'email' unique so we can also use it for login.
+    Custom User Model with 2 Security Questions.
     """
-    
-    # Django's AbstractUser already has:
-    # username, first_name, last_name, is_staff, is_active, is_superuser, etc.
-    
-    # We must make the email field unique so we can use it for login
     email = models.EmailField(_('email address'), unique=True)
-    
-    # We'll add a 'full_name' field as required by our project plan
     full_name = models.CharField(_('full name'), max_length=150, blank=False)
-
-    # --- Our Custom Fields ---
     is_email_verified = models.BooleanField(default=False)
-    secret_question = models.CharField(max_length=255, blank=True)
-    secret_answer = models.CharField(max_length=255, blank=True) # Note: We'll hash this later
 
-    # --- Configuration ---
-    
-    # Tell Django what field to use as the main "username"
-    # We keep it as 'username'
+    # --- 2 Security Questions ---
+    SECURITY_QUESTION_CHOICES = [
+        ('nick_name', "What is your nick name?"),
+        ('first_pet', "What was the name of your first pet?"),
+        ('first_school', "What was the name of your first school?"),
+        ('favorite_book', "What is your favorite book?"),
+        ('birth_city', "In what city were you born?"),
+    ]
+
+    # Question 1
+    security_question_1 = models.CharField(
+        max_length=50, 
+        choices=SECURITY_QUESTION_CHOICES, 
+        default=get_random_question,  # <--- AUTO-SELECTS RANDOM QUESTION
+        blank=True
+    )
+    security_answer_1 = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="You can change the question above. IMPORTANT: This answer will be required to reset your password." # <--- UPDATED NOTICE
+    )
+
+    # Question 2
+    security_question_2 = models.CharField(
+        max_length=50, 
+        choices=SECURITY_QUESTION_CHOICES, 
+        default=get_random_question, # <--- AUTO-SELECTS RANDOM QUESTION
+        blank=True
+    )
+    security_answer_2 = models.CharField(
+        max_length=255, 
+        blank=True,
+        help_text="You can change the question above. IMPORTANT: This answer will be required to reset your password." # <--- UPDATED NOTICE
+    )
+
     USERNAME_FIELD = 'username'
-    
-    # Tell Django which fields are required when creating a superuser
-    # 'username' (the USERNAME_FIELD) and 'password' are required by default.
     REQUIRED_FIELDS = ['email', 'full_name']
 
     def __str__(self):
-        """
-        A string representation of the user (e.g., in the admin panel).
-        """
         return self.username
 
-# In users/models.py (Append this to the end of the file)
+# --- Proxy Models for Admin ---
+class Student(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Student'
+        verbose_name_plural = 'Students'
 
+class Staff(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Staff Member'
+        verbose_name_plural = 'Staff Members'
+
+# --- OTP Model ---
 class OneTimePassword(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     code = models.CharField(max_length=6, unique=True)

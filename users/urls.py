@@ -1,7 +1,7 @@
 # In users/urls.py (UPDATED)
 
 from django.urls import path
-from .views import RegisterView
+from .views import RegisterView,VerifyEmailView
 
 # Import the pre-built view from SimpleJWT
 from rest_framework_simplejwt.views import (

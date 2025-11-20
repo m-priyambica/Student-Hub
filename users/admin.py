@@ -2,8 +2,7 @@
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import User,OneTimePassword
-
+from .models import User,OneTimePassword, Student,Staff
 class CustomUserAdmin(UserAdmin):
     """
     A custom admin class for our User model.
@@ -20,8 +19,10 @@ class CustomUserAdmin(UserAdmin):
                 'fields': (
                     'full_name',
                     'is_email_verified',
-                    'secret_question',
-                    'secret_answer',
+                    'security_question_1',
+                    'security_answer_1',
+                    'security_question_2',
+                    'security_answer_2',
                 )
             }
         )
@@ -35,7 +36,22 @@ class CustomUserAdmin(UserAdmin):
         'is_staff', 
         'is_email_verified'
     )
+   
 
 # Register your models here.
-admin.site.register(User, CustomUserAdmin)
+class StudentAdmin(CustomUserAdmin):
+    list_display = ('username', 'email', 'full_name', 'is_email_verified')
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_staff=False)
+
+# 2. Admin for Staff (is_staff=True)
+class StaffAdmin(CustomUserAdmin):
+    list_display = ('username', 'email', 'full_name', 'is_staff', 'is_email_verified')
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(is_staff=True)
+
+# Register everything
+admin.site.register(User, CustomUserAdmin) # Keeps the "All Users" view just in case
+admin.site.register(Student, StudentAdmin) # Shows only Students
+admin.site.register(Staff, StaffAdmin)     # Shows only Staff
 admin.site.register(OneTimePassword)
