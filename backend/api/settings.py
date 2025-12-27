@@ -145,6 +145,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',  # Your React dev server
     # Add your deployed frontend URL here later, e.g.:
     # 'https://your-frontend.onrender.com', 
+    'https://student-hub-frontend-gw6b.onrender.com'
 ]
 
 # --- DRF Configuration ---
