@@ -165,3 +165,13 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+# In settings.py (at the bottom)
+# --- Email Configuration (Gmail SMTP) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+# Replace these with your ACTUAL credentials directly for testing
+EMAIL_HOST_USER = 'priyambica1@gmail.com' 
+EMAIL_HOST_PASSWORD = 'utac omuk oafk vrgp' # Not your normal password! Use an App Password.
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

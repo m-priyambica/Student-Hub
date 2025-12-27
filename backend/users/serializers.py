@@ -1,61 +1,108 @@
-# In users/serializers.py (UPDATED)
-
 from rest_framework import serializers
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import AuthenticationFailed
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_str
 from .models import User
-import re # Import the regular expressions module
+import re 
 
+# --- 1. Registration Serializer ---
 class UserRegisterSerializer(serializers.ModelSerializer):
     """
-    A serializer for registering new users.
-    We only define the fields needed for creation.
+    Serializer for registering new users. 
+    REMOVED: Security Questions.
     """
     
     class Meta:
         model = User
-        # List the fields you want to accept for registration
-        fields = ('username', 'email', 'full_name', 'password',
-                  'security_question_1', 'security_answer_1',
-                   'security_question_2', 'security_answer_2'
-                  )
+        # Removed security_question/answer fields
+        fields = ('username', 'email', 'full_name', 'password')
         
         extra_kwargs = {
             'password': {
-                'write_only': True, # This means the password won't be sent back in the response
-                'style': {'input_type': 'password'} # This hides it in the browsable API
+                'write_only': True, 
+                'style': {'input_type': 'password'} 
             }
         }
     
-    # --- THIS IS OUR NEW CUSTOM VALIDATION ---
     def validate_email(self, value):
         """
         Check that the email is from the allowed college domain.
         """
-        # We can make this more flexible in case there are subdomains, etc.
-        # This regex checks for "anything@stanley.edu.in"
-        # The re.IGNORECASE makes it case-insensitive.
         if not re.match(r"^[A-Za-z0-9._%+-]+@stanley\.edu\.in$", value, re.IGNORECASE):
             raise serializers.ValidationError("Only emails from @stanley.edu.in are allowed.")
-        
         return value
-    # --- END OF NEW VALIDATION ---
     
     def create(self, validated_data):
         """
-        This method is called when we save the serializer (e.g., serializer.save()).
-        We override it to use our custom create_user method
-        which properly hashes the password.
+        Create user without security questions.
         """
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             full_name=validated_data['full_name'],
-            password=validated_data['password'],
-            # Use .get() to handle these fields safely
-            security_question_1=validated_data.get('security_question_1', ''),
-            security_answer_1=validated_data.get('security_answer_1', ''),
-            security_question_2=validated_data.get('security_question_2', ''),
-            security_answer_2=validated_data.get('security_answer_2', ''),
+            password=validated_data['password']
         )
-        
         return user
+
+
+# --- 2. Login Serializer (Supports Username OR Email) ---
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField() # This can be username OR email
+    password = serializers.CharField(write_only=True)
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
+
+    def validate(self, data):
+        username_or_email = data.get('username', '')
+        password = data.get('password', '')
+        
+        # LOGIC: Check if input looks like an email
+        if '@' in username_or_email:
+            user_obj = User.objects.filter(email=username_or_email).first()
+            if user_obj:
+                # If email exists, switch variable to the actual username for authentication
+                username_or_email = user_obj.username
+        
+        # Standard Django authentication
+        user = authenticate(username=username_or_email, password=password)
+        
+        if not user:
+            raise AuthenticationFailed('Invalid credentials. Please check your username/email and password.')
+        
+        if not user.is_active:
+            raise AuthenticationFailed('Account disabled.')
+            
+        # Generate Tokens (Assuming you use SimpleJWT)
+        try:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            tokens = RefreshToken.for_user(user)
+        except ImportError:
+            raise ImportError("SimpleJWT is not installed. Install it or use your custom token logic.")
+        
+        return {
+            'username': user.username,
+            'email': user.email,
+            'access': str(tokens.access_token),
+            'refresh': str(tokens)
+        }
+
+
+# --- 3. Password Reset Request Serializer ---
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
     
+    class Meta:
+        fields = ['email']
+
+
+# --- 4. Password Reset Confirm (Set New Password) Serializer ---
+class SetNewPasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(min_length=6, max_length=68, write_only=True)
+    confirm_password = serializers.CharField(min_length=6, max_length=68, write_only=True)
+
+    def validate(self, attrs):
+        if attrs.get('password') != attrs.get('confirm_password'):
+            raise serializers.ValidationError({"password": "Password and Confirm Password do not match."})
+        return attrs

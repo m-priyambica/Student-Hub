@@ -1,62 +1,124 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Lock, Loader2, ShieldCheck } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Lock, Eye, EyeOff, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 const ResetPasswordConfirm = () => {
-  const { state } = useLocation();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({ security_answer_1: "", security_answer_2: "", new_password: "" });
-  const [loading, setLoading] = useState(false);
+    // 1. Grab the parameters correctly based on App.jsx route /:uid/:token
+    const { uid, token } = useParams(); 
+    const navigate = useNavigate();
 
-  if (!state) return <div className="p-10 text-center">Invalid access. Go back.</div>;
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [status, setStatus] = useState({ type: "", message: "" });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-        const res = await fetch("http://127.0.0.1:8000/api/auth/reset-password/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...formData, username: state.username })
-        });
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         
-        if (res.ok) {
-            alert("Password Reset Successfully! Please Login.");
-            navigate("/");
-        } else {
-            alert("Incorrect answers.");
+        // Basic Client-side validation
+        if (newPassword !== confirmPassword) {
+            setStatus({ type: "error", message: "Passwords do not match." });
+            return;
         }
-    } catch (err) { alert("Error"); } finally { setLoading(false); }
-  };
+        if (newPassword.length < 8) {
+            setStatus({ type: "error", message: "Password must be at least 8 characters." });
+            return;
+        }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white font-sans p-6">
-       <div className="w-full max-w-md space-y-6">
-          <h2 className="text-3xl font-black">Security Check</h2>
-          <p className="text-slate-500">Answer your security questions for <b>{state.username}</b>.</p>
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-             <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
-                <p className="text-sm font-bold text-orange-800 mb-2 flex gap-2"><ShieldCheck className="w-4 h-4"/> {state.question_1}</p>
-                <input type="text" placeholder="Answer 1" required onChange={e => setFormData({...formData, security_answer_1: e.target.value})} className="w-full p-2 bg-white rounded-lg border border-orange-200 outline-none"/>
-             </div>
-             <div className="p-4 bg-orange-50 rounded-xl border border-orange-100">
-                <p className="text-sm font-bold text-orange-800 mb-2 flex gap-2"><ShieldCheck className="w-4 h-4"/> {state.question_2}</p>
-                <input type="text" placeholder="Answer 2" required onChange={e => setFormData({...formData, security_answer_2: e.target.value})} className="w-full p-2 bg-white rounded-lg border border-orange-200 outline-none"/>
-             </div>
-             
-             <div className="relative mt-6">
-                <Lock className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
-                <input type="password" placeholder="New Password" required onChange={e => setFormData({...formData, new_password: e.target.value})} className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl outline-none focus:border-green-500 font-bold"/>
-             </div>
+        setLoading(true);
+        setStatus({ type: "", message: "" });
 
-             <button disabled={loading} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl shadow-lg flex justify-center">
-                {loading ? <Loader2 className="animate-spin" /> : "Reset Password"}
-             </button>
-          </form>
-       </div>
-    </div>
-  );
+        // Debugging log to ensure we aren't sending "undefined"
+        console.log("Submitting Password Reset:", { uid, token, newPassword });
+
+        try {
+            // Adjust this URL if your backend endpoint is slightly different (e.g., using POST instead of PATCH)
+            const response = await fetch(`http://127.0.0.1:8000/api/auth/password-reset-confirm/${uid}/${token}/`, {
+                method: "PATCH", // Changed to PATCH to match your console screenshot
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    password: newPassword,
+                    confirm_password: confirmPassword, // Some backends require this field
+                    uid: uid,
+                    token: token, 
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                setStatus({ type: "success", message: "Password reset successful! Redirecting..." });
+                setTimeout(() => navigate("/"), 3000);
+            } else {
+                // Handle backend errors
+                const errorMsg = data.detail || data.password?.[0] || data.token?.[0] || "Link invalid or expired.";
+                setStatus({ type: "error", message: errorMsg });
+            }
+        } catch (error) {
+            console.error("Reset error:", error);
+            setStatus({ type: "error", message: "Server connection failed. Please try again." });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#fafaf9] flex flex-col justify-center items-center px-4">
+            <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl shadow-stone-200 border border-white">
+                <div className="text-center mb-8">
+                    <h2 className="text-3xl font-black text-stone-800 mb-2">Set New Password</h2>
+                    <p className="text-stone-500 font-medium">Please create a strong password.</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
+                        <input 
+                            type={showPassword ? "text" : "password"} 
+                            placeholder="New Password"
+                            required
+                            className="w-full pl-12 pr-12 py-4 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all font-medium"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                    </div>
+
+                    <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
+                        <input 
+                            type="password" 
+                            placeholder="Confirm Password"
+                            required
+                            className="w-full pl-12 pr-4 py-4 bg-stone-50 rounded-xl border border-stone-200 focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all font-medium"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+
+                    {status.message && (
+                        <div className={`p-4 rounded-xl flex items-center gap-3 text-sm font-bold ${status.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                            {status.type === 'success' ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
+                            {status.message}
+                        </div>
+                    )}
+
+                    <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-500/20 transition-all transform active:scale-95 flex justify-center items-center gap-2"
+                    >
+                        {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Reset Password"}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 };
+
 export default ResetPasswordConfirm;
