@@ -2,7 +2,6 @@
 Django settings for api project.
 """
 import os
-
 import dj_database_url
 from dotenv import load_dotenv
 from pathlib import Path
@@ -16,12 +15,16 @@ env_path = BASE_DIR / '.env'
 load_dotenv(env_path)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ja(807@vi$^@a+illo9%9o31u%sh3n7$43rb$%#^&)al)-w0rn'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ja(807@vi$^@a+illo9%9o31u%sh3n7$43rb$%#^&)al)-w0rn')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# This automatically sets DEBUG to False if running on Render
+DEBUG = 'RENDER' not in os.environ
 
 ALLOWED_HOSTS = []
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
 # Application definition
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # <--- Added for Static Files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -109,8 +113,26 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+# --- Static Files Configuration (Django 5 Compatible) ---
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+MEDIA_URL = '/media/'
+# Note: MEDIA_ROOT is handled by Cloudinary backend automatically
+
+# --- Django 5 Storage Configuration (The Fix) ---
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# --- Compatibility Alias for Cloudinary (Crucial Fix for AttributeError) ---
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -120,7 +142,9 @@ AUTH_USER_MODEL = 'users.User'
 
 # --- CORS Configuration ---
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # Our React dev server
+    'http://localhost:5173',  # Your React dev server
+    # Add your deployed frontend URL here later, e.g.:
+    # 'https://your-frontend.onrender.com', 
 ]
 
 # --- DRF Configuration ---
@@ -144,38 +168,19 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# --- Email Configuration (Gmail SMTP) ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')      
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD') 
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER 
-
 # --- Cloudinary Configuration ---
+# Ensure these environment variables are set in Render Dashboard
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
-# --- Django 5 Storage Configuration (Crucial Fix) ---
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
-# In settings.py (at the bottom)
 # --- Email Configuration (Gmail SMTP) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-# Replace these with your ACTUAL credentials directly for testing
 EMAIL_HOST_USER = 'priyambica1@gmail.com' 
-EMAIL_HOST_PASSWORD = 'utac omuk oafk vrgp' # Not your normal password! Use an App Password.
+EMAIL_HOST_PASSWORD = 'utac omuk oafk vrgp' 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
