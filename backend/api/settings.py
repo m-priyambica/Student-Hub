@@ -2,6 +2,8 @@
 Django settings for api project.
 """
 import os
+
+import dj_database_url
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
@@ -82,10 +84,12 @@ WSGI_APPLICATION = 'api.wsgi.application'
 
 # Database
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+   'default': dj_database_url.config(
+        # If running locally, use SQLite
+        default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
+        # If running on Render, use the Neon URL
+        conn_max_age=600
+   )
 }
 
 
