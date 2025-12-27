@@ -16,7 +16,7 @@ const RequestReset = () => {
 
     try {
       // Connects to the new Email Reset API
-      const response = await fetch("http://127.0.0.1:8000/api/auth/password-reset/", {
+      const response = await fetch("https://student-hub-quqc.onrender.com/api/auth/password-reset/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

@@ -87,7 +87,7 @@ const AccountSettings = ({ user, setUser }) => {
                 section: user.section
             };
 
-            const res = await fetch("http://127.0.0.1:8000/auth/profile/", {
+            const res = await fetch("https://student-hub-quqc.onrender.com/auth/profile/", {
                 method: "PATCH",
                 headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -105,7 +105,7 @@ const AccountSettings = ({ user, setUser }) => {
         setLoading(true);
         const token = localStorage.getItem("access_token");
         try {
-            const res = await fetch("http://127.0.0.1:8000/auth/request-password-reset/", {
+            const res = await fetch("https://student-hub-quqc.onrender.com/auth/request-password-reset/", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -193,7 +193,7 @@ const EditProductModal = ({ product, categories, onClose, onUpdate }) => {
     const handleDeleteImg = async (imgId) => {
         if(!confirm("Delete image?")) return;
         const token = localStorage.getItem("access_token");
-        await fetch(`http://127.0.0.1:8000/api/products/images/${imgId}/delete/`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` }});
+        await fetch(`https://student-hub-quqc.onrender.com/api/products/images/${imgId}/delete/`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` }});
         setFormData(prev => ({ ...prev, images: prev.images.filter(img => img.id !== imgId) }));
     };
 
@@ -221,7 +221,7 @@ const EditProductModal = ({ product, categories, onClose, onUpdate }) => {
                     <div className="flex gap-2 overflow-x-auto pb-2">
                         {formData.images?.map(img => (
                             <div key={img.id} className="relative w-16 h-16 shrink-0 group">
-                                <img src={img.image.startsWith('http') ? img.image : `http://127.0.0.1:8000${img.image}`} className="w-full h-full object-cover rounded-lg" />
+                                <img src={img.image.startsWith('http') ? img.image : `https://student-hub-quqc.onrender.com${img.image}`} className="w-full h-full object-cover rounded-lg" />
                                 <button type="button" onClick={() => handleDeleteImg(img.id)} className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white"><Trash2 className="h-4 w-4"/></button>
                             </div>
                         ))}
@@ -263,7 +263,7 @@ const Profile = () => {
         const init = async () => {
             try {
                 // 1. Fetch Profile
-                const uRes = await fetch("http://127.0.0.1:8000/auth/profile/", { headers: { "Authorization": `Bearer ${token}` }});
+                const uRes = await fetch("https://student-hub-quqc.onrender.com/auth/profile/", { headers: { "Authorization": `Bearer ${token}` }});
                 const uData = await uRes.json();
                 
                 // Get ID from token if profile fetch missing ID
@@ -272,21 +272,21 @@ const Profile = () => {
                 setUser({ ...uData, id: userId }); 
 
                 // 2. Fetch All Products (and filter for Listings)
-                const pRes = await fetch("http://127.0.0.1:8000/api/products/", { headers: { "Authorization": `Bearer ${token}` }});
+                const pRes = await fetch("https://student-hub-quqc.onrender.com/api/products/", { headers: { "Authorization": `Bearer ${token}` }});
                 const pData = await pRes.json();
                 if (Array.isArray(pData)) {
                     setMyListings(pData.filter(p => String(p.seller.id || p.seller) === String(userId)));
                 }
 
                 // 3. Fetch Transactions
-                const tRes = await fetch("http://127.0.0.1:8000/api/auth/transactions/", { headers: { "Authorization": `Bearer ${token}` }});
+                const tRes = await fetch("https://student-hub-quqc.onrender.com/api/auth/transactions/", { headers: { "Authorization": `Bearer ${token}` }});
                 if (tRes.ok) {
                     const tData = await tRes.json();
                     setTransactions(tData);
                 }
 
                 // 4. Fetch Categories
-                const cRes = await fetch("http://127.0.0.1:8000/api/products/categories/");
+                const cRes = await fetch("https://student-hub-quqc.onrender.com/api/products/categories/");
                 const cData = await cRes.json();
                 setCategories(cData);
 
@@ -303,7 +303,7 @@ const Profile = () => {
 
     const handleUpdateProduct = async (id, formData) => {
         const token = localStorage.getItem("access_token");
-        const res = await fetch(`http://127.0.0.1:8000/api/products/${id}/`, {
+        const res = await fetch(`https://student-hub-quqc.onrender.com/api/products/${id}/`, {
             method: "PATCH",
             headers: { "Authorization": `Bearer ${token}` },
             body: formData
@@ -320,14 +320,14 @@ const Profile = () => {
     const handleDeleteProduct = async (id) => {
         if(!confirm("Delete?")) return;
         const token = localStorage.getItem("access_token");
-        await fetch(`http://127.0.0.1:8000/api/products/${id}/`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` }});
+        await fetch(`https://student-hub-quqc.onrender.com/api/products/${id}/`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` }});
         setMyListings(myListings.filter(p => p.id !== id));
     };
 
     const handleMarkReturned = async (transactionId) => {
         if(!confirm("Confirm item returned?")) return;
         const token = localStorage.getItem("access_token");
-        await fetch(`http://127.0.0.1:8000/api/auth/transactions/${transactionId}/return/`, { method: "POST", headers: { "Authorization": `Bearer ${token}` }});
+        await fetch(`https://student-hub-quqc.onrender.com/api/auth/transactions/${transactionId}/return/`, { method: "POST", headers: { "Authorization": `Bearer ${token}` }});
         window.location.reload();
     };
 
@@ -416,7 +416,7 @@ const ProductGrid = ({ title, items, isOwner, onEdit, onDelete }) => (
                 {items.map(p => (
                     <div key={p.id} className="bg-white p-3 rounded-2xl shadow-sm border border-stone-100 hover:shadow-md transition-all relative">
                         <div className="relative w-full aspect-[4/3] bg-stone-100 rounded-xl overflow-hidden mb-3">
-                            <img src={p.images?.[0]?.image ? (p.images[0].image.startsWith('http') ? p.images[0].image : `http://127.0.0.1:8000${p.images[0].image}`) : "https://via.placeholder.com/150"} className="w-full h-full object-cover" />
+                            <img src={p.images?.[0]?.image ? (p.images[0].image.startsWith('http') ? p.images[0].image : `https://student-hub-quqc.onrender.com${p.images[0].image}`) : "https://via.placeholder.com/150"} className="w-full h-full object-cover" />
                             <div className="absolute top-2 right-2 bg-white px-2 py-1 rounded-lg text-xs font-bold shadow-sm">₹{p.price}</div>
                         </div>
                         <div className="flex justify-between items-center">
@@ -450,7 +450,7 @@ const TransactionList = ({ title, items, isSellerView, onMarkReturn }) => (
             <div className="grid grid-cols-1 gap-4">
                 {items.map(t => (
                     <div key={t.id} className="bg-white p-4 rounded-2xl shadow-sm border border-stone-100 flex flex-col sm:flex-row gap-4 items-center">
-                        <img src={t.product_image ? (t.product_image.startsWith('http') ? t.product_image : `http://127.0.0.1:8000${t.product_image}`) : "https://via.placeholder.com/150"} className="w-full sm:w-24 h-24 object-cover rounded-xl bg-stone-100" />
+                        <img src={t.product_image ? (t.product_image.startsWith('http') ? t.product_image : `https://student-hub-quqc.onrender.com${t.product_image}`) : "https://via.placeholder.com/150"} className="w-full sm:w-24 h-24 object-cover rounded-xl bg-stone-100" />
                         <div className="flex-1 w-full text-center sm:text-left">
                             <div className="flex flex-col sm:flex-row justify-between items-center mb-1">
                                 <h4 className="font-bold text-lg text-stone-800">{t.product_title}</h4>

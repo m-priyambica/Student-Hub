@@ -77,7 +77,7 @@ const Chat = () => {
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 setCurrentUser({ id: payload.user_id });
 
-                const res = await fetch("http://127.0.0.1:8000/api/chat/rooms/", { 
+                const res = await fetch("https://student-hub-quqc.onrender.com/api/chat/rooms/", { 
                     headers: { "Authorization": `Bearer ${token}` } 
                 });
                 if (res.ok) {
@@ -99,7 +99,7 @@ const Chat = () => {
         const fetchMessages = async () => {
             const token = localStorage.getItem("access_token");
             try {
-                const res = await fetch(`http://127.0.0.1:8000/api/chat/${activeChat.id}/messages/`, { 
+                const res = await fetch(`https://student-hub-quqc.onrender.com/api/chat/${activeChat.id}/messages/`, { 
                     headers: { "Authorization": `Bearer ${token}` } 
                 });
                 if (res.ok) setMessages(await res.json());
@@ -122,7 +122,7 @@ const Chat = () => {
 
         const token = localStorage.getItem("access_token");
         try {
-            await fetch(`http://127.0.0.1:8000/api/chat/${activeChat.id}/send/`, {
+            await fetch(`https://student-hub-quqc.onrender.com/api/chat/${activeChat.id}/send/`, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ text: tempMsg.text })
@@ -138,7 +138,7 @@ const Chat = () => {
 
         try {
             // A. Create Transaction Record
-            const res = await fetch("http://127.0.0.1:8000/api/chat/transaction/create/", {
+            const res = await fetch("https://student-hub-quqc.onrender.com/api/chat/transaction/create/", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ 
@@ -151,7 +151,7 @@ const Chat = () => {
 
             if (res.ok) {
                 // B. Send Green System Message to Chat
-                await fetch(`http://127.0.0.1:8000/api/chat/${activeChat.id}/send/`, {
+                await fetch(`https://student-hub-quqc.onrender.com/api/chat/${activeChat.id}/send/`, {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                     body: JSON.stringify({ text: "✅ DEAL CONFIRMED! The item has been marked as sold/rented." })
@@ -172,7 +172,7 @@ const Chat = () => {
         
         const token = localStorage.getItem("access_token");
         try {
-            const res = await fetch(`http://127.0.0.1:8000/api/chat/${activeChat.id}/delete/`, {
+            const res = await fetch(`https://student-hub-quqc.onrender.com/api/chat/${activeChat.id}/delete/`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });

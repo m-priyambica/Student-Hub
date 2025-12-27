@@ -14,7 +14,7 @@ const ProductDetail = () => {
   // --- HELPER: Fix Image URLs ---
   const getImageUrl = (path) => {
       if (!path) return "https://via.placeholder.com/600";
-      return path.startsWith('http') ? path : `http://127.0.0.1:8000${path}`;
+      return path.startsWith('http') ? path : `https://student-hub-quqc.onrender.com${path}`;
   };
 
   // --- FETCH DATA ---
@@ -22,7 +22,7 @@ const ProductDetail = () => {
     const token = localStorage.getItem("access_token");
     setLoading(true);
 
-    fetch(`http://127.0.0.1:8000/api/products/${id}/`, {
+    fetch(`https://student-hub-quqc.onrender.com/api/products/${id}/`, {
       headers: { "Authorization": `Bearer ${token}` }
     })
     .then(res => {
@@ -39,7 +39,7 @@ const ProductDetail = () => {
         setActiveImage(firstImg);
         
         // Fetch similar items...
-        fetch("http://127.0.0.1:8000/api/products/", {
+        fetch("https://student-hub-quqc.onrender.com/api/products/", {
             headers: { "Authorization": `Bearer ${token}` }
         })
         .then(res => res.json())
@@ -61,7 +61,7 @@ const ProductDetail = () => {
     const token = localStorage.getItem("access_token");
     if (!token) return alert("Please login to chat.");
     try {
-        const response = await fetch("http://127.0.0.1:8000/api/chat/start/", {
+        const response = await fetch("https://student-hub-quqc.onrender.com/api/chat/start/", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ product_id: product.id })

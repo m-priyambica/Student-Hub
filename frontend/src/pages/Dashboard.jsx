@@ -58,7 +58,7 @@ const Dashboard = () => {
   // --- 1. FETCH CATEGORIES ---
   const fetchCategories = async () => {
     try {
-        const res = await fetch("http://127.0.0.1:8000/api/products/categories/");
+        const res = await fetch("https://student-hub-quqc.onrender.com/api/products/categories/");
         if (res.ok) {
             const data = await res.json();
             const uniqueCats = ["All", ...data.filter(c => c !== "All")];
@@ -74,7 +74,7 @@ const Dashboard = () => {
 
     if (products.length === 0) setLoading(true);
 
-    let url = "http://127.0.0.1:8000/api/products/?";
+    let url = "https://student-hub-quqc.onrender.com/api/products/?";
     if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
     if (activeCategory && activeCategory !== "All") url += `category=${encodeURIComponent(activeCategory)}&`;
 
@@ -131,7 +131,7 @@ const Dashboard = () => {
     const token = localStorage.getItem("access_token");
     if (!token) return alert("Please login to chat.");
     try {
-        const response = await fetch("http://127.0.0.1:8000/api/chat/start/", {
+        const response = await fetch("https://student-hub-quqc.onrender.com/api/chat/start/", {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ product_id: product.id })
@@ -160,7 +160,7 @@ const Dashboard = () => {
     }
 
     try {
-        const response = await fetch("http://127.0.0.1:8000/api/products/", {
+        const response = await fetch("https://student-hub-quqc.onrender.com/api/products/", {
             method: "POST",
             headers: { "Authorization": `Bearer ${token}` },
             body: formData
@@ -183,7 +183,7 @@ const Dashboard = () => {
           const token = localStorage.getItem("access_token");
           if (!token) return;
           try {
-              const res = await fetch("http://127.0.0.1:8000/api/chat/rooms/", { 
+              const res = await fetch("https://student-hub-quqc.onrender.com/api/chat/rooms/", { 
                   headers: { "Authorization": `Bearer ${token}` } 
               });
               if (res.ok) {

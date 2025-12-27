@@ -34,7 +34,7 @@ const ResetPasswordConfirm = () => {
 
         try {
             // Adjust this URL if your backend endpoint is slightly different (e.g., using POST instead of PATCH)
-            const response = await fetch(`http://127.0.0.1:8000/api/auth/password-reset-confirm/${uid}/${token}/`, {
+            const response = await fetch(`https://student-hub-quqc.onrender.com/api/auth/password-reset-confirm/${uid}/${token}/`, {
                 method: "PATCH", // Changed to PATCH to match your console screenshot
                 headers: {
                     "Content-Type": "application/json",
