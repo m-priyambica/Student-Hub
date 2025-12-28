@@ -49,16 +49,27 @@ class RegisterView(generics.CreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
+        # 1. Save the user first
         user = serializer.save()
+
+        # 2. Generate and Save OTP
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
-        
+
+        # 3. Send Email Safely (Try/Except Block)
         try:
             subject = "Verify your Student Hub Account"
             message = f"Hi {user.full_name},\n\nYour code is: {otp_code}\n\nIt expires in 5 minutes."
-            send_mail(subject, message, settings.EMAIL_HOST_USER, [user.email])
+            from_email = settings.EMAIL_HOST_USER
+            recipient_list = [user.email]
+
+            send_mail(subject, message, from_email, recipient_list)
+            print(f"✅ OTP Email sent to {user.email}")
+
         except Exception as e:
-            print(f"Email Error: {e}")
+            # If email fails, print the error but DO NOT CRASH the server
+            print(f"❌ Email failed to send: {str(e)}")
+            # The user is still created, so the frontend receives a 201 Created success
 
 # --- 3. Verify Email ---
 class VerifyEmailView(generics.GenericAPIView):
