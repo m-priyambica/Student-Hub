@@ -21,7 +21,11 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ja(807@vi$^@a+illo9%9
 # This automatically sets DEBUG to False if running on Render
 DEBUG = 'RENDER' not in os.environ
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "student-hub-quqc.onrender.com", 
+    "localhost", 
+    "127.0.0.1"
+]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -55,10 +59,10 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware', # <--- Added for Static Files
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -143,7 +147,7 @@ AUTH_USER_MODEL = 'users.User'
 # --- CORS Configuration ---
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',  # Your React dev server
- 
+     "http://127.0.0.1:5173",
     'https://student-hub-frontend-gw6b.onrender.com'
 ]
 CORS_ALLOW_ALL_ORIGINS = True
