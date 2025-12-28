@@ -5,18 +5,18 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
 from django.utils.encoding import force_str
 from .models import User
-import re 
+# Removed "import re" since we don't need regex for domain checking anymore
 
 # --- 1. Registration Serializer ---
 class UserRegisterSerializer(serializers.ModelSerializer):
     """
     Serializer for registering new users. 
     REMOVED: Security Questions.
+    REMOVED: Domain Restriction (@stanley.edu.in).
     """
     
     class Meta:
         model = User
-        # Removed security_question/answer fields
         fields = ('username', 'email', 'full_name', 'password')
         
         extra_kwargs = {
@@ -26,13 +26,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             }
         }
     
-    def validate_email(self, value):
-        """
-        Check that the email is from the allowed college domain.
-        """
-        if not re.match(r"^[A-Za-z0-9._%+-]+@stanley\.edu\.in$", value, re.IGNORECASE):
-            raise serializers.ValidationError("Only emails from @stanley.edu.in are allowed.")
-        return value
+    # --- DELETED validate_email METHOD HERE ---
+    # Now any valid email address (Gmail, Outlook, etc.) will be accepted.
     
     def create(self, validated_data):
         """
@@ -74,7 +69,7 @@ class LoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise AuthenticationFailed('Account disabled.')
             
-        # Generate Tokens (Assuming you use SimpleJWT)
+        # Generate Tokens
         try:
             from rest_framework_simplejwt.tokens import RefreshToken
             tokens = RefreshToken.for_user(user)

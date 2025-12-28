@@ -1,4 +1,4 @@
-import threading # <--- NEW IMPORT
+import threading 
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+from django.db.models import Q  # <--- FIXED: Added this import
 
 # --- HELPER: Email Thread (Background Sending) ---
 class EmailThread(threading.Thread):
@@ -25,13 +26,13 @@ class EmailThread(threading.Thread):
 
     def run(self):
         try:
-            # fail_silently=True ensures the server never crashes even if email fails
+            # FIXED: fail_silently=False so you can see errors in your Render logs
             send_mail(
                 self.subject, 
                 self.message, 
                 self.from_email, 
                 self.recipient_list, 
-                fail_silently=True
+                fail_silently=False
             ) 
             print(f"✅ OTP Email sent in background to {self.recipient_list}")
         except Exception as e:
@@ -54,14 +55,21 @@ class RegisterView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
+        username = request.data.get('username')
         
-        # Check if user exists but is NOT verified
-        existing_user = User.objects.filter(email=email).first()
+        # FIXED: Check if user exists by Email OR Username
+        # This fixes the issue where an unverified username blocks registration
+        existing_user = User.objects.filter(Q(email=email) | Q(username=username)).first()
+
         if existing_user:
             if not existing_user.is_email_verified:
+                # If they are not verified, delete them so they can try again
                 existing_user.delete()
             else:
-                return Response({"error": "User with this email already exists and is verified."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "User with this email or username already exists and is verified."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -80,7 +88,7 @@ class RegisterView(generics.CreateAPIView):
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
 
-        # 3. Send Email in Background Thread (Prevents 500 Crash)
+        # 3. Send Email in Background Thread
         subject = "Verify your Student Hub Account"
         message = f"Hi {user.full_name},\n\nYour code is: {otp_code}\n\nIt expires in 5 minutes."
         from_email = settings.EMAIL_HOST_USER
@@ -121,7 +129,7 @@ class ResendOTPView(generics.GenericAPIView):
             otp_code = generate_otp()
             OneTimePassword.objects.update_or_create(user=user, defaults={'code': otp_code, 'created_at': timezone.now()})
             
-            # Send this in background too if you wish, or keep synchronous for now
+            # Send this in background too
             EmailThread("Resend Code", f"Your new code is: {otp_code}", settings.EMAIL_HOST_USER, [user.email]).start()
             
             return Response({'message': 'OTP resent successfully.'}, status=status.HTTP_200_OK)

@@ -101,7 +101,7 @@ const Register = () => {
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-orange-500 transition-colors">
                     <Mail className="w-5 h-5" />
                 </div>
-                <input type="email" name="email" placeholder=" Stanley College Email " required onChange={handleChange} 
+                <input type="email" name="email" placeholder=" Email Id " required onChange={handleChange} 
                     className="w-full pl-12 pr-4 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-orange-500 outline-none transition-all font-bold text-slate-700 placeholder-slate-400"
                 />
             </div>
