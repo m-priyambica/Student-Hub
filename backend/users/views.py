@@ -1,3 +1,4 @@
+import threading # <--- NEW IMPORT
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -12,6 +13,29 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
+
+# --- HELPER: Email Thread (Background Sending) ---
+class EmailThread(threading.Thread):
+    def __init__(self, subject, message, from_email, recipient_list):
+        self.subject = subject
+        self.message = message
+        self.from_email = from_email
+        self.recipient_list = recipient_list
+        threading.Thread.__init__(self)
+
+    def run(self):
+        try:
+            # fail_silently=True ensures the server never crashes even if email fails
+            send_mail(
+                self.subject, 
+                self.message, 
+                self.from_email, 
+                self.recipient_list, 
+                fail_silently=True
+            ) 
+            print(f"✅ OTP Email sent in background to {self.recipient_list}")
+        except Exception as e:
+            print(f"❌ Background email failed: {e}")
 
 # --- 1. Custom Login ---
 class LoginView(generics.GenericAPIView):
@@ -56,20 +80,14 @@ class RegisterView(generics.CreateAPIView):
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
 
-        # 3. Send Email Safely (Try/Except Block)
-        try:
-            subject = "Verify your Student Hub Account"
-            message = f"Hi {user.full_name},\n\nYour code is: {otp_code}\n\nIt expires in 5 minutes."
-            from_email = settings.EMAIL_HOST_USER
-            recipient_list = [user.email]
+        # 3. Send Email in Background Thread (Prevents 500 Crash)
+        subject = "Verify your Student Hub Account"
+        message = f"Hi {user.full_name},\n\nYour code is: {otp_code}\n\nIt expires in 5 minutes."
+        from_email = settings.EMAIL_HOST_USER
+        recipient_list = [user.email]
 
-            send_mail(subject, message, from_email, recipient_list)
-            print(f"✅ OTP Email sent to {user.email}")
-
-        except Exception as e:
-            # If email fails, print the error but DO NOT CRASH the server
-            print(f"❌ Email failed to send: {str(e)}")
-            # The user is still created, so the frontend receives a 201 Created success
+        # Use the Thread class to send without blocking
+        EmailThread(subject, message, from_email, recipient_list).start()
 
 # --- 3. Verify Email ---
 class VerifyEmailView(generics.GenericAPIView):
@@ -103,7 +121,9 @@ class ResendOTPView(generics.GenericAPIView):
             otp_code = generate_otp()
             OneTimePassword.objects.update_or_create(user=user, defaults={'code': otp_code, 'created_at': timezone.now()})
             
-            send_mail("Resend Code", f"Your new code is: {otp_code}", settings.EMAIL_HOST_USER, [user.email])
+            # Send this in background too if you wish, or keep synchronous for now
+            EmailThread("Resend Code", f"Your new code is: {otp_code}", settings.EMAIL_HOST_USER, [user.email]).start()
+            
             return Response({'message': 'OTP resent successfully.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
