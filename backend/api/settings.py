@@ -143,11 +143,11 @@ AUTH_USER_MODEL = 'users.User'
 # --- CORS Configuration ---
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',  # Your React dev server
-    # Add your deployed frontend URL here later, e.g.:
-    # 'https://your-frontend.onrender.com', 
+ 
     'https://student-hub-frontend-gw6b.onrender.com'
 ]
-
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 # --- DRF Configuration ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
