@@ -182,10 +182,16 @@ CLOUDINARY_STORAGE = {
 }
 
 # --- Email Configuration (Gmail SMTP) ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'priyambica1@gmail.com' 
-EMAIL_HOST_PASSWORD = 'utac omuk oafk vrgp' 
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# --- EMAIL CONFIGURATION (SendGrid API) ---
+# We use the API backend to bypass Render's blocked ports (587/465)
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+
+# The API Key you just created
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+
+# Set to False so emails actually send
+SENDGRID_SANDBOX_MODE_IN_DEBUG = False
+
+# The email you just verified
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "priyambica1@gmail.com")
