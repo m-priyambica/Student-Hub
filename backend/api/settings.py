@@ -195,3 +195,5 @@ SENDGRID_SANDBOX_MODE_IN_DEBUG = False
 
 # The email you just verified
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "priyambica1@gmail.com")
+# Change this to True to see errors in the Render log
+EMAIL_FAIL_SILENTLY = False
