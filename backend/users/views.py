@@ -1,19 +1,17 @@
-import threading 
-from rest_framework import generics, status
+import threading
+import django
+from rest_framework import generics, status, views
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from .models import OneTimePassword, User
-from .serializers import UserRegisterSerializer, LoginSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
+from .serializers import RegisterSerializer, LoginSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
 from .utils import generate_otp
-from django.contrib.auth import authenticate
-from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.db.models import Q  # <--- FIXED: Added this import
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.http import HttpResponse
 
 # --- HELPER: Email Thread (Background Sending) ---
 class EmailThread(threading.Thread):
@@ -26,7 +24,6 @@ class EmailThread(threading.Thread):
 
     def run(self):
         try:
-            # FIXED: fail_silently=False so you can see errors in your Render logs
             send_mail(
                 self.subject, 
                 self.message, 
@@ -48,56 +45,54 @@ class LoginView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# --- 2. Registration ---
+# --- 2. Registration (With Inactive Status & OTP) ---
 class RegisterView(generics.CreateAPIView):
-    serializer_class = UserRegisterSerializer
+    serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
-        username = request.data.get('username')
         
-        # FIXED: Check if user exists by Email OR Username
-        # This fixes the issue where an unverified username blocks registration
-        existing_user = User.objects.filter(Q(email=email) | Q(username=username)).first()
-
-        if existing_user:
-            if not existing_user.is_email_verified:
-                # If they are not verified, delete them so they can try again
-                existing_user.delete()
-            else:
-                return Response(
-                    {"error": "User with this email or username already exists and is verified."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        # Check if user already exists
+        # Note: We now rely on serializer validation for detailed checks, 
+        # but this safety check prevents server errors on duplicates.
+        if User.objects.filter(email=email).exists():
+             return Response(
+                {"error": "User with this email already exists."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
+            # Create user and send OTP
             self.perform_create(serializer)
             return Response(
-                {"message": "User created. Check your email for OTP."},
+                {"message": "User created. Please check your Stanley email for the OTP."},
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
-        # 1. Save the user first
+        # 1. Save the user
         user = serializer.save()
 
-        # 2. Generate and Save OTP
+        # 2. CRITICAL: Lock the account immediately so they can't login without OTP
+        user.is_active = False 
+        user.save()
+
+        # 3. Generate and Save OTP
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
 
-        # 3. Send Email in Background Thread
+        # 4. Send Email in Background Thread
         subject = "Verify your Student Hub Account"
-        message = f"Hi {user.full_name},\n\nYour code is: {otp_code}\n\nIt expires in 5 minutes."
-        from_email = settings.EMAIL_HOST_USER
+        message = f"Hi {user.first_name},\n\nYour code is: {otp_code}\n\nPlease check your Spam folder if not found in Inbox.\nIt expires in 5 minutes."
+        from_email = settings.DEFAULT_FROM_EMAIL
         recipient_list = [user.email]
 
-        # Use the Thread class to send without blocking
         EmailThread(subject, message, from_email, recipient_list).start()
 
-# --- 3. Verify Email ---
+# --- 3. Verify Email (Unlocks the Account) ---
 class VerifyEmailView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
@@ -106,14 +101,22 @@ class VerifyEmailView(generics.GenericAPIView):
         try:
             otp_obj = OneTimePassword.objects.get(code=otp_code)
             user = otp_obj.user
-            if not user.is_email_verified:
-                user.is_email_verified = True
+            
+            # Unlock the account only if OTP matches
+            if not user.is_active:
+                user.is_active = True
+                user.is_email_verified = True  # Keep this for your reference
                 user.save()
+                
+                # Cleanup: Delete used OTP
                 otp_obj.delete()
-                return Response({'message': 'Account verified!'}, status=status.HTTP_200_OK)
-            return Response({'message': 'Already verified.'}, status=status.HTTP_204_NO_CONTENT)
+                
+                return Response({'message': 'Account verified! You can now login.'}, status=status.HTTP_200_OK)
+            
+            return Response({'message': 'Account is already verified.'}, status=status.HTTP_200_OK)
+            
         except OneTimePassword.DoesNotExist:
-            return Response({'message': 'Invalid OTP.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'Invalid or expired OTP.'}, status=status.HTTP_404_NOT_FOUND)
 
 # --- 4. Resend OTP ---
 class ResendOTPView(generics.GenericAPIView):
@@ -123,46 +126,47 @@ class ResendOTPView(generics.GenericAPIView):
         email = request.data.get('email')
         try:
             user = User.objects.get(email=email)
-            if user.is_email_verified:
+            if user.is_active:
                 return Response({'message': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
             
+            # Generate new code
             otp_code = generate_otp()
-            OneTimePassword.objects.update_or_create(user=user, defaults={'code': otp_code, 'created_at': timezone.now()})
+            # Update existing or create new OTP record
+            OneTimePassword.objects.update_or_create(
+                user=user, 
+                defaults={'code': otp_code, 'created_at': timezone.now()}
+            )
             
-            # Send this in background too
-            EmailThread("Resend Code", f"Your new code is: {otp_code}", settings.EMAIL_HOST_USER, [user.email]).start()
+            # Send in background
+            subject = "Resend Code: Student Hub"
+            message = f"Your new code is: {otp_code}"
+            from_email = settings.DEFAULT_FROM_EMAIL
+            
+            EmailThread(subject, message, from_email, [user.email]).start()
             
             return Response({'message': 'OTP resent successfully.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-# --- 5. User Transactions (Buying/Selling History) ---
+# --- 5. User Transactions ---
 class UserTransactionsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        # FIX: Local import to prevent Circular Import Error
         from chat.models import Transaction 
-        
         user = request.user
         
-        # 1. Things I bought/rented
         buy_txs = Transaction.objects.filter(buyer=user).select_related('product', 'seller').order_by('-created_at')
-        
-        # 2. Things I sold/rented out
         sell_txs = Transaction.objects.filter(seller=user).select_related('product', 'buyer').order_by('-created_at')
         
         def format_tx(t, partner):
-            # 1. Safely get Image URL
             img_url = None
             try:
-                # Check if product exists and has images
                 if t.product and t.product.images.exists():
                     img_url = t.product.images.first().image.url
             except Exception:
-                img_url = None # Fallback if anything fails
+                img_url = None
 
-            # 2. Safely get Days Left
             days = 0
             try:
                 if hasattr(t, 'get_days_left'):
@@ -191,9 +195,7 @@ class MarkReturnedView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, transaction_id):
-        # FIX: Local import to prevent Circular Import Error
         from chat.models import Transaction
-
         try:
             trans = Transaction.objects.get(id=transaction_id, seller=request.user)
             if trans.transaction_type == 'rent':
@@ -210,6 +212,7 @@ class PasswordResetRequestView(generics.GenericAPIView):
     permission_classes = [AllowAny]
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
+        # Note: Actual email sending logic should be implemented here or in serializer
         return Response({'message': 'If registered, email sent.'}, status=status.HTTP_200_OK)
 
 class PasswordResetConfirmView(generics.GenericAPIView):
@@ -220,6 +223,19 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = UserRegisterSerializer
+    serializer_class = RegisterSerializer
     def get_object(self):
         return self.request.user
+
+# --- 8. Admin Unlock (Temporary) ---
+def unlock_admin(request):
+    User = get_user_model()
+    try:
+        user = User.objects.get(username="Maroju Chinu")
+        user.is_active = True
+        user.is_staff = True
+        user.is_superuser = True
+        user.save()
+        return HttpResponse("✅ SUCCESS: Maroju Chinu is now ACTIVE. Go login!")
+    except User.DoesNotExist:
+        return HttpResponse("❌ ERROR: User 'Maroju Chinu' not found.")

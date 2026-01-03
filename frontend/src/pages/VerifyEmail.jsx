@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // Import useLocation
+import { useNavigate, useLocation } from "react-router-dom"; 
 import { Mail, Loader2, ArrowLeft } from "lucide-react";
 
 const VerifyEmail = () => {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false); // State for resend button
+  const [resending, setResending] = useState(false); 
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Get email passed from Register page
   const email = location.state?.email; 
 
   const handleVerify = async (e) => {
@@ -31,7 +30,6 @@ const VerifyEmail = () => {
     finally { setLoading(false); }
   };
 
-  // --- NEW: Resend Logic ---
   const handleResend = async () => {
       if (!email) {
           alert("Email not found. Please register again.");
@@ -80,9 +78,16 @@ const VerifyEmail = () => {
             </button>
         </form>
         
+        {/* --- ADDED SECTION START --- */}
+        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl shadow-sm">
+            <p className="text-sm text-green-700 font-medium">
+                Didn't see the email? Please check your <b className="font-bold">Spam</b> or <b className="font-bold">Promotions</b> folder.
+            </p>
+        </div>
+        {/* --- ADDED SECTION END --- */}
+
         <p className="mt-8 text-slate-400 text-sm font-medium">
             Didn't get the email? 
-            {/* Added onClick Handler here */}
             <button onClick={handleResend} disabled={resending} className="text-orange-600 hover:underline font-bold ml-1">
                 {resending ? "Sending..." : "Resend"}
             </button>

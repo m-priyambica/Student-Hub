@@ -1,42 +1,44 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from rest_framework.exceptions import AuthenticationFailed
-from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_decode
-from django.utils.encoding import force_str
-from .models import User
-# Removed "import re" since we don't need regex for domain checking anymore
 
-# --- 1. Registration Serializer ---
-class UserRegisterSerializer(serializers.ModelSerializer):
+User = get_user_model()
+
+# --- 1. Registration Serializer (Restricted to @stanley.edu.in) ---
+class RegisterSerializer(serializers.ModelSerializer):
     """
-    Serializer for registering new users. 
-    REMOVED: Security Questions.
-    REMOVED: Domain Restriction (@stanley.edu.in).
+    Serializer for registering new users.
+    ENFORCES: @stanley.edu.in domain restriction.
+    ENFORCES: Unique email addresses.
     """
-    
     class Meta:
         model = User
-        fields = ('username', 'email', 'full_name', 'password')
-        
+        fields = ('username', 'email', 'password', 'first_name')
         extra_kwargs = {
-            'password': {
-                'write_only': True, 
-                'style': {'input_type': 'password'} 
-            }
+            'password': {'write_only': True}
         }
-    
-    # --- DELETED validate_email METHOD HERE ---
-    # Now any valid email address (Gmail, Outlook, etc.) will be accepted.
-    
+
+    def validate_email(self, value):
+        """
+        Check that the email belongs to Stanley College and is unique.
+        """
+        email = value.lower()
+        
+        # Rule #1: Domain Restriction
+        if not email.endswith("@stanley.edu.in"):
+            raise serializers.ValidationError("Only Stanley College students can login with their mail ID (@stanley.edu.in).")
+        
+        # Rule #2: One user per email
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError("This email is already registered.")
+            
+        return email
+
     def create(self, validated_data):
-        """
-        Create user without security questions.
-        """
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
-            full_name=validated_data['full_name'],
+            first_name=validated_data.get('first_name', ''),
             password=validated_data['password']
         )
         return user
@@ -44,7 +46,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 # --- 2. Login Serializer (Supports Username OR Email) ---
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField() # This can be username OR email
+    username = serializers.CharField() # Can be username OR email
     password = serializers.CharField(write_only=True)
     access = serializers.CharField(read_only=True)
     refresh = serializers.CharField(read_only=True)
@@ -57,7 +59,7 @@ class LoginSerializer(serializers.Serializer):
         if '@' in username_or_email:
             user_obj = User.objects.filter(email=username_or_email).first()
             if user_obj:
-                # If email exists, switch variable to the actual username for authentication
+                # If email exists, use the actual username for authentication
                 username_or_email = user_obj.username
         
         # Standard Django authentication
@@ -66,15 +68,16 @@ class LoginSerializer(serializers.Serializer):
         if not user:
             raise AuthenticationFailed('Invalid credentials. Please check your username/email and password.')
         
+        # CRITICAL FIX: Block login if they haven't verified OTP yet
         if not user.is_active:
-            raise AuthenticationFailed('Account disabled.')
+            raise AuthenticationFailed('Account disabled. Please verify your email via OTP first.')
             
         # Generate Tokens
         try:
             from rest_framework_simplejwt.tokens import RefreshToken
             tokens = RefreshToken.for_user(user)
         except ImportError:
-            raise ImportError("SimpleJWT is not installed. Install it or use your custom token logic.")
+            raise ImportError("SimpleJWT is not installed.")
         
         return {
             'username': user.username,
@@ -84,18 +87,13 @@ class LoginSerializer(serializers.Serializer):
         }
 
 
-# --- 3. Password Reset Request Serializer ---
+# --- 3. Password Reset Serializers ---
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    
-    class Meta:
-        fields = ['email']
 
-
-# --- 4. Password Reset Confirm (Set New Password) Serializer ---
 class SetNewPasswordSerializer(serializers.Serializer):
-    password = serializers.CharField(min_length=6, max_length=68, write_only=True)
-    confirm_password = serializers.CharField(min_length=6, max_length=68, write_only=True)
+    password = serializers.CharField(min_length=6, write_only=True)
+    confirm_password = serializers.CharField(min_length=6, write_only=True)
 
     def validate(self, attrs):
         if attrs.get('password') != attrs.get('confirm_password'):
