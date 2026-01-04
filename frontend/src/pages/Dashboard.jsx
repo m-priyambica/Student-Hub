@@ -14,7 +14,7 @@ const PLACEHOLDERS = [
 ];
 const getPlaceholder = (id) => PLACEHOLDERS[id % PLACEHOLDERS.length];
 
-// Basic "Bad Word" Filter
+// Basic "Bad Word" Filter (Client side validation for posting)
 const BAD_WORDS = ["stupid", "idiot", "scam", "fake", "badword"]; 
 const containsBadWords = (text) => {
     return BAD_WORDS.some(word => text.toLowerCase().includes(word));
@@ -23,15 +23,16 @@ const containsBadWords = (text) => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const [hasUnread, setHasUnread] = useState(false);
+  
   // --- STATE ---
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   // Categories & Filters
   const [categories, setCategories] = useState(["All", "Textbooks", "Electronics", "Stationery", "Sports"]);
   const [activeCategory, setActiveCategory] = useState("All");
   const [filterCondition, setFilterCondition] = useState("all"); 
-  const [filterType, setFilterType] = useState("all");           
+  const [filterType, setFilterType] = useState("all");          
   const [searchQuery, setSearchQuery] = useState(""); 
   const [showFilters, setShowFilters] = useState(false);
 
@@ -43,17 +44,6 @@ const Dashboard = () => {
   const [newProduct, setNewProduct] = useState({
     title: "", description: "", price: "", category: "Textbooks", condition: "used", product_type: "sale", images: []
   });
-
-  // --- HELPER: SMART ICONS ---
-  const getCategoryIcon = (categoryName) => {
-    const name = categoryName.toLowerCase();
-    if (name === 'all') return <Zap className="h-4 w-4" />;
-    if (name === 'textbooks' || name.includes('book')) return <BookOpen className="h-4 w-4" />;
-    if (name === 'electronics' || name.includes('gadget')) return <Monitor className="h-4 w-4" />;
-    if (name === 'stationery' || name.includes('pen') || name.includes('paper')) return <PenTool className="h-4 w-4" />;
-    if (name === 'sports' || name.includes('gym') || name.includes('game')) return <Trophy className="h-4 w-4" />;
-    return <Tag className="h-4 w-4" />; 
-  };
 
   // --- 1. FETCH CATEGORIES ---
   const fetchCategories = async () => {
@@ -67,16 +57,22 @@ const Dashboard = () => {
     } catch (err) { console.error("Failed to load categories", err); }
   };
 
-  // --- 2. FETCH PRODUCTS ---
+  // --- 2. FETCH PRODUCTS (SERVER SIDE FILTERING) ---
   const fetchProducts = useCallback(async () => {
     const token = localStorage.getItem("access_token");
     if (!token) { navigate("/"); return; }
 
-    if (products.length === 0) setLoading(true);
+    setLoading(true);
 
-    let url = "https://student-hub-quqc.onrender.com/api/products/?";
-    if (searchQuery) url += `search=${encodeURIComponent(searchQuery)}&`;
-    if (activeCategory && activeCategory !== "All") url += `category=${encodeURIComponent(activeCategory)}&`;
+    // Build the Query String dynamically
+    const params = new URLSearchParams();
+    
+    if (searchQuery) params.append("search", searchQuery);
+    if (activeCategory !== "All") params.append("category", activeCategory);
+    if (filterCondition !== "all") params.append("condition", filterCondition);
+    if (filterType !== "all") params.append("product_type", filterType);
+
+    const url = `https://student-hub-quqc.onrender.com/api/products/?${params.toString()}`;
 
     try {
         const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
@@ -89,21 +85,18 @@ const Dashboard = () => {
         }
     } catch (err) { console.error("Error fetching products:", err); } 
     finally { setLoading(false); }
-  }, [navigate, searchQuery, activeCategory, products.length]);
+  }, [navigate, searchQuery, activeCategory, filterCondition, filterType]); 
 
   // --- 3. USE EFFECTS ---
   useEffect(() => { fetchCategories(); }, []);
+  
+  // This triggers whenever search or filters change (Debounce added for typing)
   useEffect(() => {
-    const timeoutId = setTimeout(() => { fetchProducts(); }, 500);
-    return () => clearTimeout(timeoutId);
+    const delayDebounceFn = setTimeout(() => {
+      fetchProducts();
+    }, 500); // Wait 500ms after user stops typing to send request
+    return () => clearTimeout(delayDebounceFn);
   }, [fetchProducts]); 
-
-  // --- 4. CLIENT SIDE FILTERING ---
-  const filteredProducts = products.filter(product => {
-      const matchesCondition = filterCondition === 'all' || product.condition === filterCondition;
-      const matchesType = filterType === 'all' || product.product_type === filterType;
-      return matchesCondition && matchesType;
-  });
 
   const resetFilters = () => {
       setFilterCondition("all");
@@ -118,9 +111,7 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  // --- NEW: Handle opening chat (Clears notification) ---
   const handleOpenChat = () => {
-      // Save current time as "Last Visited Chat"
       localStorage.setItem("lastChatVisit", new Date().toISOString());
       setHasUnread(false);
       navigate("/chat");
@@ -137,7 +128,7 @@ const Dashboard = () => {
             body: JSON.stringify({ product_id: product.id })
         });
         if (response.ok) {
-            handleOpenChat(); // Use the wrapper to set read status
+            handleOpenChat(); 
         } else {
             alert("Could not start chat.");
         }
@@ -170,14 +161,14 @@ const Dashboard = () => {
             alert("Item listed successfully! 🛍️");
             setNewProduct({ title: "", description: "", price: "", category: "Textbooks", condition: "used", product_type: "sale", images: [] });
             setCustomCategoryMode(false);
-            fetchProducts();
+            fetchProducts(); // Refresh list to show new item
             fetchCategories();
         } else { alert("Failed to create product. Check inputs."); }
     } catch (error) { alert("Server error."); } 
     finally { setSubmitting(false); }
   };
 
-  // --- UPDATED NOTIFICATION LOGIC ---
+  // --- NOTIFICATION LOGIC ---
   useEffect(() => {
       const checkMessages = async () => {
           const token = localStorage.getItem("access_token");
@@ -190,13 +181,8 @@ const Dashboard = () => {
                   const data = await res.json();
                   const payload = JSON.parse(atob(token.split('.')[1]));
                   const userId = payload.user_id;
-                  
-                  // Get the last time the user visited the chat page (defaults to 1970 if never visited)
                   const lastVisit = localStorage.getItem("lastChatVisit") || "1970-01-01T00:00:00.000Z";
 
-                  // Check if any room has a message that is:
-                  // 1. Sent by someone else
-                  // 2. Sent AFTER the last time I opened the chat
                   const hasNew = data.some(room => {
                       const isOtherSender = room.last_sender_id && String(room.last_sender_id) !== String(userId);
                       const isNewer = room.last_message_time && new Date(room.last_message_time) > new Date(lastVisit);
@@ -211,16 +197,13 @@ const Dashboard = () => {
       return () => clearInterval(interval);
   }, []);
 
-  
-
   return (
     <div className="min-h-screen bg-[#fafaf9] font-sans text-stone-800 pb-20 relative">
       
-      {/* NAVBAR (Fixed for Mobile) */}
+      {/* NAVBAR */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-white/40 shadow-sm px-4 py-3">
         <nav className="max-w-7xl mx-auto flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             
-            {/* Top Row: Logo & User Actions */}
             <div className="flex justify-between items-center w-full md:w-auto">
                 <div className="flex items-center gap-2 cursor-pointer group" onClick={() => window.location.reload()}>
                     <div className="relative w-8 h-8 md:w-10 md:h-10">
@@ -229,9 +212,7 @@ const Dashboard = () => {
                     <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">Student <span className="text-orange-600">Hub</span></h1>
                 </div>
 
-                {/* Mobile User Actions */}
                 <div className="flex items-center gap-2 md:hidden">
-                    {/* Updated Click Handler */}
                     <button onClick={handleOpenChat} className="p-2 rounded-xl bg-stone-100 text-stone-600 relative">
                         <MessageCircle className="h-5 w-5" />
                         <span className={`absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white ${hasUnread ? 'block' : 'hidden'}`}></span>
@@ -245,7 +226,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* Middle: Search Bar */}
+            {/* SEARCH BAR (Live Updates) */}
             <div className="flex-1 w-full md:max-w-md relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Search className="h-4 w-4 text-stone-400 group-focus-within:text-orange-500 transition-colors" />
@@ -259,9 +240,7 @@ const Dashboard = () => {
                 />
             </div>
 
-            {/* Desktop User Actions */}
             <div className="hidden md:flex items-center gap-3">
-                {/* --- Updated Click Handler --- */}
                 <button onClick={handleOpenChat} className="p-3 rounded-xl hover:bg-stone-100 text-stone-500 hover:text-orange-600 transition-colors relative" title="Messages">
                     <MessageCircle className="h-6 w-6" />
                     {hasUnread && (
@@ -280,8 +259,6 @@ const Dashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 mt-6 md:mt-10 mb-8">
-        
-        {/* TITLE & FILTER TOGGLE */}
         <div className="flex justify-between items-end mb-6">
             <div>
                 <h1 className="text-3xl md:text-5xl font-black text-stone-900 mb-2 tracking-tight">
@@ -302,7 +279,6 @@ const Dashboard = () => {
             </button>
         </div>
 
-        {/* --- FILTER PALETTE --- */}
         {showFilters && (
             <div className="mb-8 p-4 md:p-5 bg-white rounded-2xl shadow-xl border border-stone-100 animate-in slide-in-from-top-2 z-10 relative">
                 <div className="flex justify-between items-center mb-4 border-b border-stone-100 pb-2">
@@ -344,7 +320,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">{[1,2,3,4].map(i => <div key={i} className="h-64 bg-stone-200 rounded-3xl animate-pulse"></div>)}</div>
         ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-8">
-            {filteredProducts.map((product) => (
+            {products.map((product) => (
                 <div 
                     key={product.id} 
                     onClick={() => navigate(`/product/${product.id}`)} 
@@ -385,7 +361,7 @@ const Dashboard = () => {
             </div>
         )}
 
-        {!loading && filteredProducts.length === 0 && (
+        {!loading && products.length === 0 && (
           <div className="text-center py-20 flex flex-col items-center">
             <div className="bg-orange-50 p-6 rounded-full mb-4"><ShoppingBag className="h-12 w-12 text-orange-400" /></div>
             <h3 className="text-xl font-bold text-stone-800">No items found</h3>

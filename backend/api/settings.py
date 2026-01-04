@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     # --- 2. Staticfiles comes AFTER Cloudinary ---
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     
     # --- 3. Cloudinary SDK ---
     'cloudinary',

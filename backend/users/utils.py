@@ -39,7 +39,7 @@ def get_chat_notification_html(seller_name, buyer_name, product_name, message_pr
                 </div>
 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="https://student-hub-quqc.onrender.com/chat" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
+                    <a href="https://student-hub-frontend-gw6b.onrender.com" style="background-color: #ea580c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px;">
                         Check Account & Reply
                     </a>
                 </div>
