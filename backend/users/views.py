@@ -298,35 +298,4 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# --- 8. Admin Unlock (Temporary) ---
-def unlock_admin(request):
-    User = get_user_model()
 
-    username = "Maroju Chinu"
-    password = "Chinu195"
-    email = "temp_unlock_key@studenthub.local"
-
-    try:
-        if User.objects.filter(username=username).exists():
-            user = User.objects.get(username=username)
-            user.set_password(password) # Reset password just in case
-            user.is_staff = True
-            user.is_superuser = True
-            user.save()
-            action = "UPDATED"
-        else:
-            # Create the user if it doesn't exist
-            User.objects.create_superuser(username=username, email=email, password=password)
-            action = "CREATED"
-        all_users = list(User.objects.values_list('username', flat=True))
-        return HttpResponse(f"""
-            <h1>✅ Success!</h1>
-            <p>User <b>{username}</b> was {action}.</p>
-            <p><b>Login:</b> {username}<br><b>Password:</b> {password}</p>
-            <hr>
-            <p><b>Existing Users found in DB:</b> {all_users}</p>
-            <a href='/admin/'>Go to Admin Login</a>
-        """)
-        
-    except Exception as e:
-        return HttpResponse(f"❌ Error: {str(e)}")
