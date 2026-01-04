@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom"; 
 import { Mail, Loader2, ArrowLeft } from "lucide-react";
 
@@ -6,10 +6,26 @@ const VerifyEmail = () => {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false); 
+  const [email, setEmail] = useState(""); // Changed to state
+
   const navigate = useNavigate();
   const location = useLocation();
   
-  const email = location.state?.email; 
+  // --- FIX: On load, check State OR LocalStorage (for mobile refresh) ---
+  useEffect(() => {
+    const stateEmail = location.state?.email;
+    const storageEmail = localStorage.getItem("pendingVerificationEmail");
+
+    if (stateEmail) {
+        setEmail(stateEmail);
+    } else if (storageEmail) {
+        setEmail(storageEmail);
+    } else {
+        // If no email anywhere, send them back to register
+        // alert("Session expired. Please register again.");
+        // navigate("/register");
+    }
+  }, [location, navigate]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -21,6 +37,9 @@ const VerifyEmail = () => {
             body: JSON.stringify({ otp }),
         });
         if (response.ok) {
+            // --- CLEANUP: Clear storage on success ---
+            localStorage.removeItem("pendingVerificationEmail");
+            
             alert("Email Verified Successfully! Please Login.");
             navigate("/"); 
         } else {
@@ -78,13 +97,11 @@ const VerifyEmail = () => {
             </button>
         </form>
         
-        {/* --- ADDED SECTION START --- */}
         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl shadow-sm">
             <p className="text-sm text-green-700 font-medium">
                 Didn't see the email? Please check your <b className="font-bold">Spam</b> or <b className="font-bold">Promotions</b> folder.
             </p>
         </div>
-        {/* --- ADDED SECTION END --- */}
 
         <p className="mt-8 text-slate-400 text-sm font-medium">
             Didn't get the email? 

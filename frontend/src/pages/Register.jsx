@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { User, Mail, Lock, FileText, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
+import { User, Mail, Lock, FileText, ArrowRight, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: "", email: "", full_name: "", password: ""
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,6 +30,8 @@ const Register = () => {
         const data = await response.json();
 
         if (response.ok) {
+            // FIX: Save email to localStorage so mobile refresh works on OTP page
+            localStorage.setItem("pendingVerificationEmail", formData.email);
             navigate("/verify-email", { state: { email: formData.email } });
         } else {
             const errorMsg = typeof data === 'string' ? data : Object.values(data).flat().join(" ");
@@ -106,14 +109,26 @@ const Register = () => {
                 />
             </div>
 
-            {/* Row 3: Password */}
+            {/* Row 3: Password with Eye Icon */}
             <div className="relative group">
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-orange-500 transition-colors">
                     <Lock className="w-5 h-5" />
                 </div>
-                <input type="password" name="password" placeholder="Password" required onChange={handleChange} 
-                    className="w-full pl-12 pr-4 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-orange-500 outline-none transition-all font-bold text-slate-700 placeholder-slate-400"
+                <input 
+                    type={showPassword ? "text" : "password"} 
+                    name="password" 
+                    placeholder="Password" 
+                    required 
+                    onChange={handleChange} 
+                    className="w-full pl-12 pr-12 py-4 bg-slate-100 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-orange-500 outline-none transition-all font-bold text-slate-700 placeholder-slate-400"
                 />
+                <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-600 transition-colors"
+                >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
             </div>
 
             <button 

@@ -20,7 +20,7 @@ def get_otp_html_content(name, otp):
     Returns a beautiful HTML email string.
     """
     return f"""
-   <!DOCTYPE html>
+    <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -127,7 +127,7 @@ class LoginView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# --- 2. Registration (With HTML Email) ---
+# --- 2. Registration (UPDATED FOR RESEND & SUBJECT LINE) ---
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
@@ -135,12 +135,37 @@ class RegisterView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
         
-        if User.objects.filter(email=email).exists():
-             return Response(
-                {"error": "User with this email already exists."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # CHECK: Does user exist?
+        existing_user = User.objects.filter(email=email).first()
 
+        if existing_user:
+            # If user exists AND is already verified -> Error
+            if existing_user.is_active:
+                 return Response(
+                    {"error": "User with this email already exists."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                # If user exists but is NOT verified -> RESEND OTP logic
+                otp_code = generate_otp()
+                OneTimePassword.objects.update_or_create(
+                    user=existing_user,
+                    defaults={'code': otp_code}
+                )
+
+                # Send Email with Code FIRST in subject
+                subject = f"[{otp_code}] Verification Code - Student Hub 🎓"
+                plain_message = f"Hi {existing_user.first_name}, Your code is: {otp_code}"
+                html_content = get_otp_html_content(existing_user.first_name, otp_code)
+                
+                EmailThread(subject, plain_message, settings.DEFAULT_FROM_EMAIL, [existing_user.email], html_message=html_content).start()
+
+                return Response(
+                    {"message": "Account exists but was not verified. We sent a new OTP!"},
+                    status=status.HTTP_200_OK
+                )
+
+        # Standard Create Logic for New Users
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
@@ -158,8 +183,9 @@ class RegisterView(generics.CreateAPIView):
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
 
-        # --- NEW: Generate HTML Content ---
-        subject = "Welcome to Student Hub! 🎓 Verification Code"
+        # --- UPDATED SUBJECT LINE HERE ---
+        subject = f"[{otp_code}] Verification Code - Student Hub 🎓"
+        
         # Plain text version for old email clients
         plain_message = f"Hi {user.first_name}, Your code is: {otp_code}"
         # HTML version
@@ -210,8 +236,8 @@ class ResendOTPView(generics.GenericAPIView):
                 defaults={'code': otp_code, 'created_at': timezone.now()}
             )
             
-            # --- NEW: HTML for Resend ---
-            subject = "New Verification Code 🔐"
+            # --- NEW: HTML for Resend with OTP in Subject ---
+            subject = f"[{otp_code}] New Verification Code 🔐"
             plain_message = f"Your new code is: {otp_code}"
             html_content = get_otp_html_content(user.first_name, otp_code)
             
@@ -299,15 +325,11 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# --- 8. Unlock Admin (Fixes the ImportError) ---
-
-
+# --- 8. Unlock Admin ---
 def unlock_admin(request):
     """
     Simple view to unlock admin access or show an unlock page.
-    This fixes the 'ImportError: cannot import name unlock_admin' crash.
     """
     if request.method == 'POST':
-        # Add your specific unlock logic here if needed
         pass
     return render(request, 'unlock_admin.html')
