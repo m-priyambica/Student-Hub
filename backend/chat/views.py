@@ -35,7 +35,6 @@ def start_chat(request):
 def get_messages(request, room_id):
     try:
         room = Room.objects.get(id=room_id)
-        # Security: Only participants can read
         if request.user != room.buyer and request.user != room.product.seller:
             return Response({"error": "Not allowed"}, status=403)
             
@@ -52,42 +51,55 @@ def send_message(request, room_id):
         room = Room.objects.get(id=room_id)
         text = request.data.get('text')
         
-        # Security: Only participants can send
         if request.user != room.buyer and request.user != room.product.seller:
             return Response({"error": "Not allowed"}, status=403)
 
         # SAVE TO DB
         msg = Message.objects.create(room=room, sender=request.user, text=text)
         
-        # --- EMAIL NOTIFICATION LOGIC ---
-        try:
-            # 1. Identify the Receiver
-            if request.user == room.buyer:
-                receiver = room.product.seller
-            else:
-                receiver = room.buyer
-            
-            # 2. Prepare Email Content
-            subject = f"New Inquiry: {room.product.title} 📦"
-            html_content = get_chat_notification_html(
-                seller_name=receiver.first_name,
-                buyer_name=request.user.first_name,
-                product_name=room.product.title,
-                message_preview=text[:50] # Show first 50 chars
-            )
+        # --- SMART EMAIL NOTIFICATION LOGIC ---
+        # 1. Check if the chat is currently "Active" (Live)
+        # We look for the message right before this one.
+        last_msg_before_this = Message.objects.filter(room=room).exclude(id=msg.id).order_by('-timestamp').first()
+        
+        should_send_email = True
+        
+        if last_msg_before_this:
+            # Calculate time difference
+            time_diff = timezone.now() - last_msg_before_this.timestamp
+            # If the last message was sent less than 5 minutes (300 seconds) ago, 
+            # we assume they are chatting live -> SKIP EMAIL
+            if time_diff.total_seconds() < 300: 
+                should_send_email = False
+        
+        # 2. If chat was quiet for > 5 mins, Send Email
+        if should_send_email:
+            try:
+                if request.user == room.buyer:
+                    receiver = room.product.seller
+                else:
+                    receiver = room.buyer
+                
+                subject = f"New Inquiry: {room.product.title} 📦"
+                html_content = get_chat_notification_html(
+                    seller_name=receiver.first_name,
+                    buyer_name=request.user.first_name,
+                    product_name=room.product.title,
+                    message_preview=text[:50] 
+                )
 
-            # 3. Send Email in Background
-            EmailThread(
-                subject=subject,
-                message=f"You have a new message about {room.product.title}.", # Fallback text
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[receiver.email],
-                html_message=html_content
-            ).start()
-            
-        except Exception as e:
-            # Log error but don't stop the chat from working
-            print(f"Error sending chat email: {e}")
+                EmailThread(
+                    subject=subject,
+                    message=f"You have a new message about {room.product.title}.", 
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[receiver.email],
+                    html_message=html_content
+                ).start()
+                print("📧 Notification sent (User was offline/inactive)")
+            except Exception as e:
+                print(f"Error sending chat email: {e}")
+        else:
+            print("🔕 Notification skipped (User is likely online)")
         # --------------------------------
 
         return Response({"id": msg.id, "text": msg.text, "senderId": msg.sender.id, "timestamp": msg.timestamp})
@@ -119,20 +131,16 @@ def create_transaction(request):
         return Response({"message": "Transaction recorded!"})
     except Exception as e:
         return Response({"error": str(e)}, status=500)
-    
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_rooms(request):
     user = request.user
-    # Fetch rooms where user is Buyer OR Seller and prefetch messages
     rooms = Room.objects.filter(Q(buyer=user) | Q(product__seller=user)).select_related('product', 'buyer', 'product__seller').prefetch_related('messages')
     
     data = []
     for room in rooms:
-        # Get Last Message Info for Notifications
         last_msg = room.messages.order_by('-timestamp').first()
-        
         last_sender_id = last_msg.sender.id if last_msg else None
 
         data.append({
@@ -162,7 +170,6 @@ def get_rooms(request):
 def delete_room(request, room_id):
     try:
         room = Room.objects.get(id=room_id)
-        # Security: Only participants can delete
         if request.user == room.buyer or request.user == room.product.seller:
             room.delete()
             return Response({"message": "Chat deleted successfully"})
