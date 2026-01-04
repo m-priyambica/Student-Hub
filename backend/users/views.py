@@ -12,6 +12,7 @@ from .utils import generate_otp
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.http import HttpResponse
+from django.shortcuts import render
 
 # --- HELPER: HTML Email Template ---
 def get_otp_html_content(name, otp):
@@ -298,4 +299,15 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
+# --- 8. Unlock Admin (Fixes the ImportError) ---
 
+
+def unlock_admin(request):
+    """
+    Simple view to unlock admin access or show an unlock page.
+    This fixes the 'ImportError: cannot import name unlock_admin' crash.
+    """
+    if request.method == 'POST':
+        # Add your specific unlock logic here if needed
+        pass
+    return render(request, 'unlock_admin.html')

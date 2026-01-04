@@ -8,6 +8,11 @@ from products.models import Product
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
+
+# --- IMPORTS FOR EMAIL ---
+from users.views import EmailThread
+from users.utils import get_chat_notification_html
 
 User = get_user_model()
 
@@ -53,6 +58,38 @@ def send_message(request, room_id):
 
         # SAVE TO DB
         msg = Message.objects.create(room=room, sender=request.user, text=text)
+        
+        # --- EMAIL NOTIFICATION LOGIC ---
+        try:
+            # 1. Identify the Receiver
+            if request.user == room.buyer:
+                receiver = room.product.seller
+            else:
+                receiver = room.buyer
+            
+            # 2. Prepare Email Content
+            subject = f"New Inquiry: {room.product.title} 📦"
+            html_content = get_chat_notification_html(
+                seller_name=receiver.first_name,
+                buyer_name=request.user.first_name,
+                product_name=room.product.title,
+                message_preview=text[:50] # Show first 50 chars
+            )
+
+            # 3. Send Email in Background
+            EmailThread(
+                subject=subject,
+                message=f"You have a new message about {room.product.title}.", # Fallback text
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[receiver.email],
+                html_message=html_content
+            ).start()
+            
+        except Exception as e:
+            # Log error but don't stop the chat from working
+            print(f"Error sending chat email: {e}")
+        # --------------------------------
+
         return Response({"id": msg.id, "text": msg.text, "senderId": msg.sender.id, "timestamp": msg.timestamp})
     except Room.DoesNotExist:
         return Response({"error": "Room not found"}, status=404)
@@ -96,9 +133,7 @@ def get_rooms(request):
         # Get Last Message Info for Notifications
         last_msg = room.messages.order_by('-timestamp').first()
         
-        # --- FIX: Define last_sender_id based on last_msg ---
         last_sender_id = last_msg.sender.id if last_msg else None
-        # ----------------------------------------------------
 
         data.append({
             "id": room.id,
@@ -117,7 +152,6 @@ def get_rooms(request):
                 "product_type": room.product.product_type,
                 "seller": room.product.seller.id 
             },
-            # NEW FIELDS FOR NOTIFICATIONS
             "last_sender_id": last_sender_id,
             "last_message_time": last_msg.timestamp if last_msg else None
         })
