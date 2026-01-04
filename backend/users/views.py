@@ -301,12 +301,32 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 # --- 8. Admin Unlock (Temporary) ---
 def unlock_admin(request):
     User = get_user_model()
+
+    username = "Maroju Chinu"
+    password = "Chinu195"
+    email = "priyambica1@gmail.com"
+
     try:
-        user = User.objects.get(username="Maroju Chinu")
-        user.is_active = True
-        user.is_staff = True
-        user.is_superuser = True
-        user.save()
-        return HttpResponse("✅ SUCCESS: Maroju Chinu is now ACTIVE. Go login!")
-    except User.DoesNotExist:
-        return HttpResponse("❌ ERROR: User 'Maroju Chinu' not found.")
+        if User.objects.filter(username=username).exists():
+            user = User.objects.get(username=username)
+            user.set_password(password) # Reset password just in case
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+            action = "UPDATED"
+        else:
+            # Create the user if it doesn't exist
+            User.objects.create_superuser(username=username, email=email, password=password)
+            action = "CREATED"
+        all_users = list(User.objects.values_list('username', flat=True))
+        return HttpResponse(f"""
+            <h1>✅ Success!</h1>
+            <p>User <b>{username}</b> was {action}.</p>
+            <p><b>Login:</b> {username}<br><b>Password:</b> {password}</p>
+            <hr>
+            <p><b>Existing Users found in DB:</b> {all_users}</p>
+            <a href='/admin/'>Go to Admin Login</a>
+        """)
+        
+    except Exception as e:
+        return HttpResponse(f"❌ Error: {str(e)}")
