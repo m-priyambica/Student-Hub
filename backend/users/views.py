@@ -304,7 +304,7 @@ def unlock_admin(request):
 
     username = "Maroju Chinu"
     password = "Chinu195"
-    email = "priyambica1@gmail.com"
+    email = "temp_unlock_key@studenthub.local"
 
     try:
         if User.objects.filter(username=username).exists():
