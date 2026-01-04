@@ -93,9 +93,14 @@ const Chat = () => {
         init();
     }, [navigate]);
 
-    // 2. Load Messages (With Polling)
+    // 2. Load Messages (With SMART POLLING)
     useEffect(() => {
         if (!activeChat) return;
+
+        let intervalId;
+        // Start fast
+        let currentInterval = 3000; 
+
         const fetchMessages = async () => {
             const token = localStorage.getItem("access_token");
             try {
@@ -105,9 +110,50 @@ const Chat = () => {
                 if (res.ok) setMessages(await res.json());
             } catch (err) { console.error("Msg Error", err); }
         };
+
+        // Initial fetch
         fetchMessages();
-        const interval = setInterval(fetchMessages, 3000); 
-        return () => clearInterval(interval);
+
+        // --- SMART POLLING LOGIC ---
+        const startPolling = (interval) => {
+            clearInterval(intervalId);
+            intervalId = setInterval(fetchMessages, interval);
+        };
+
+        // Start with fast polling (3s)
+        startPolling(3000);
+
+        // A. DETECT ACTIVITY (Mouse/Keyboard)
+        const handleActivity = () => {
+            if (document.hidden) return; // Don't speed up if tab is hidden
+            if (currentInterval !== 3000) {
+                currentInterval = 3000;
+                startPolling(3000); // Resume fast polling
+            }
+        };
+
+        // B. SLOW DOWN ON INACTIVITY (Tab Hidden)
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                currentInterval = 60000; // Slow to 60s if tab hidden
+                startPolling(60000);
+            } else {
+                fetchMessages(); // Update immediately on return
+                currentInterval = 3000;
+                startPolling(3000);
+            }
+        };
+
+        window.addEventListener("mousemove", handleActivity);
+        window.addEventListener("keydown", handleActivity);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener("mousemove", handleActivity);
+            window.removeEventListener("keydown", handleActivity);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
     }, [activeChat]);
 
     // 3. Send Message
