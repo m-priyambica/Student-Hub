@@ -29,7 +29,7 @@ function App() {
 
         {/* --- FIXED ROUTE --- */}
         {/* We added /:uid/:token to capture the ID and Token from the email link */}
-        <Route path="/reset-password-confirm/:uid/:token" element={<ResetPasswordConfirm />} />
+        <Route path="/reset-password/:uid/:token" element={<ResetPasswordConfirm />} />
       </Routes>
     </Router>
   );
