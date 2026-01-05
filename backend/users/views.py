@@ -98,41 +98,42 @@ def get_otp_html_content(name, otp):
 def get_reset_html_content(reset_link):
     return f"""
     <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: 'Helvetica', 'Arial', sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }}
-                .container {{ max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }}
-                .header {{ background-color: #E65100; padding: 30px; text-align: center; color: white; }}
-                .header h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
-                .content {{ padding: 30px; color: #333333; line-height: 1.6; }}
-                .btn {{ background-color: #E65100; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 5px; font-weight: bold; display: inline-block; }}
-                .alert-box {{ background-color: #FFF3E0; border-left: 5px solid #E65100; padding: 15px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-        <div class="container">
-            <div class="header">
-                <h1>Student Hub 🎓</h1>
-                <div>The Campus Marketplace</div>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Reset Password</title>
+    </head>
+    <body style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 0;">
+        <div style="max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            
+            <div style="background-color: #ea580c; padding: 30px; text-align: center;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #ffffff;">Student Hub 🎓</h1>
+                <div style="color: #fff7ed; margin-top: 5px; font-size: 16px;">Password Reset</div>
             </div>
-            <div class="content">
-                <h3>Hey there! 👋</h3>
-                <p>We received a request to reset your password.</p>
+
+            <div style="padding: 40px 30px; color: #333333; line-height: 1.6;">
+                <h3 style="margin-top: 0; color: #1f2937;">Hello! 👋</h3>
+                <p>We received a request to reset the password for your Student Hub account.</p>
                 
-                <div class="alert-box">
-                    <strong>Heads up:</strong> This link expires in 24 hours.
+                <div style="background-color: #fff7ed; border-left: 5px solid #ea580c; padding: 15px; margin: 20px 0; color: #9a3412;">
+                    <strong>Heads up:</strong> This link is valid for <strong>24 hours</strong>.
                 </div>
 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="{reset_link}" class="btn">Reset My Password</a>
+                    <a href="{reset_link}" style="background-color: #ea580c; color: #ffffff; text-decoration: none; padding: 14px 30px; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);">
+                        Reset My Password
+                    </a>
                 </div>
                 
-                <p style="font-size: 12px; color: #777;">If the button doesn't work, copy this link:<br>{reset_link}</p>
+                <p style="color: #6b7280; font-size: 14px;">If you didn't ask for this, you can safely ignore this email.</p>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af;">
+                Student Hub Team • Hyderabad, India
             </div>
         </div>
-        </body>
-        </html>
+    </body>
+    </html>
     """
 
 # --- HELPER: Email Thread ---
