@@ -20,4 +20,5 @@ urlpatterns = [
     # Note: Ideally, these should be inside users/urls.py, but they will work here if views.py exists
     path('auth/profile/', views.user_profile, name='user_profile'),
     path('auth/request-password-reset/', views.trigger_password_reset, name='trigger_password_reset'),
+    path('api/auth/password-reset-confirm/<uidb64>/<token>/', views.confirm_password_reset, name='confirm_password_reset'),
 ]
