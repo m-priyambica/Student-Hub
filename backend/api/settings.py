@@ -94,10 +94,10 @@ WSGI_APPLICATION = 'api.wsgi.application'
 # Database
 DATABASES = {
    'default': dj_database_url.config(
-        # If running locally, use SQLite
-        default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
-        # If running on Render, use the Neon URL
-        conn_max_age=600
+       # If running locally, use SQLite
+       default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
+       # If running on Render, use the Neon URL
+       conn_max_age=600
    )
 }
 
@@ -153,6 +153,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
 # --- DRF Configuration ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -182,19 +183,20 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
-# --- Email Configuration (Gmail SMTP) ---
+# --- EMAIL CONFIGURATION (Corrected for Gmail) ---
+# We replaced the SendGrid code with this Gmail code.
 
-# --- EMAIL CONFIGURATION (SendGrid API) ---
-# We use the API backend to bypass Render's blocked ports (587/465)
-EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+if 'RENDER' in os.environ:
+    # Production (Render)
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_HOST_USER = os.environ.get('priyambica1@gmail.com')
+    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+else:
+    # Local Development (Prints to Terminal)
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# The API Key you just created
-SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
-
-# Set to False so emails actually send
-SENDGRID_SANDBOX_MODE_IN_DEBUG = False
-
-# The email you just verified
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "priyambica1@gmail.com")
-# Change this to True to see errors in the Render log
+# This ensures errors are shown in logs if something goes wrong
 EMAIL_FAIL_SILENTLY = False
