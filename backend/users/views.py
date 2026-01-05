@@ -1,26 +1,28 @@
+import os
 import threading
-import django
 from rest_framework import generics, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from .models import OneTimePassword, User
-from .serializers import RegisterSerializer, LoginSerializer, PasswordResetRequestSerializer, SetNewPasswordSerializer
+from .serializers import RegisterSerializer, LoginSerializer, SetNewPasswordSerializer
 from .utils import generate_otp
 from django.contrib.auth import get_user_model
-from django.db.models import Q
-from django.http import HttpResponse
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.shortcuts import render
 
-# --- HELPER: HTML Email Template ---
+# Get the User model
+User = get_user_model()
+
+# --- HELPER: HTML Email Template for OTP ---
 def get_otp_html_content(name, otp):
-    """
-    Returns a beautiful HTML email string.
-    """
     return f"""
-    <!DOCTYPE html>
+  <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -92,30 +94,70 @@ def get_otp_html_content(name, otp):
 </html>
     """
 
-# --- HELPER: Email Thread (Now supports HTML) ---
+# --- HELPER: HTML Email Template for Password Reset ---
+def get_reset_html_content(reset_link):
+    return f"""
+    <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Helvetica', 'Arial', sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }}
+                .container {{ max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; }}
+                .header {{ background-color: #E65100; padding: 30px; text-align: center; color: white; }}
+                .header h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
+                .content {{ padding: 30px; color: #333333; line-height: 1.6; }}
+                .btn {{ background-color: #E65100; color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 5px; font-weight: bold; display: inline-block; }}
+                .alert-box {{ background-color: #FFF3E0; border-left: 5px solid #E65100; padding: 15px; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+        <div class="container">
+            <div class="header">
+                <h1>Student Hub 🎓</h1>
+                <div>The Campus Marketplace</div>
+            </div>
+            <div class="content">
+                <h3>Hey there! 👋</h3>
+                <p>We received a request to reset your password.</p>
+                
+                <div class="alert-box">
+                    <strong>Heads up:</strong> This link expires in 24 hours.
+                </div>
+
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_link}" class="btn">Reset My Password</a>
+                </div>
+                
+                <p style="font-size: 12px; color: #777;">If the button doesn't work, copy this link:<br>{reset_link}</p>
+            </div>
+        </div>
+        </body>
+        </html>
+    """
+
+# --- HELPER: Email Thread ---
 class EmailThread(threading.Thread):
     def __init__(self, subject, message, from_email, recipient_list, html_message=None):
         self.subject = subject
         self.message = message
         self.from_email = from_email
         self.recipient_list = recipient_list
-        self.html_message = html_message  # <--- Store HTML content
+        self.html_message = html_message
         threading.Thread.__init__(self)
 
     def run(self):
         try:
-            # send_mail supports an 'html_message' argument!
             send_mail(
                 self.subject, 
-                self.message,  # Plain text fallback
+                self.message, 
                 self.from_email, 
                 self.recipient_list, 
                 fail_silently=False,
-                html_message=self.html_message # <--- Send the beautiful HTML version
+                html_message=self.html_message
             ) 
-            print(f"✅ OTP Email sent in background to {self.recipient_list}")
+            print(f"✅ Email sent to {self.recipient_list}")
         except Exception as e:
-            print(f"❌ Background email failed: {e}")
+            print(f"❌ Email failed: {e}")
 
 # --- 1. Custom Login ---
 class LoginView(generics.GenericAPIView):
@@ -127,155 +169,93 @@ class LoginView(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# --- 2. Registration (UPDATED FOR RESEND & SUBJECT LINE) ---
+# --- 2. Registration ---
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
-        
-        # CHECK: Does user exist?
         existing_user = User.objects.filter(email=email).first()
 
         if existing_user:
-            # If user exists AND is already verified -> Error
             if existing_user.is_active:
-                 return Response(
-                    {"error": "User with this email already exists."}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                 return Response({"error": "User with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                # If user exists but is NOT verified -> RESEND OTP logic
                 otp_code = generate_otp()
-                OneTimePassword.objects.update_or_create(
-                    user=existing_user,
-                    defaults={'code': otp_code}
-                )
-
-                # Send Email with Code FIRST in subject
+                OneTimePassword.objects.update_or_create(user=existing_user, defaults={'code': otp_code})
                 subject = f"[{otp_code}] Verification Code - Student Hub 🎓"
-                plain_message = f"Hi {existing_user.first_name}, Your code is: {otp_code}"
                 html_content = get_otp_html_content(existing_user.first_name, otp_code)
-                
-                EmailThread(subject, plain_message, settings.DEFAULT_FROM_EMAIL, [existing_user.email], html_message=html_content).start()
+                EmailThread(subject, f"Code: {otp_code}", settings.DEFAULT_FROM_EMAIL, [existing_user.email], html_message=html_content).start()
+                return Response({"message": "Account exists but not verified. New OTP sent!"}, status=status.HTTP_200_OK)
 
-                return Response(
-                    {"message": "Account exists but was not verified. We sent a new OTP!"},
-                    status=status.HTTP_200_OK
-                )
-
-        # Standard Create Logic for New Users
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             self.perform_create(serializer)
-            return Response(
-                {"message": "User created. Please check your Stanley email for the OTP."},
-                status=status.HTTP_201_CREATED
-            )
+            return Response({"message": "User created. Check email for OTP."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
         user = serializer.save()
         user.is_active = False 
         user.save()
-
         otp_code = generate_otp()
         OneTimePassword.objects.create(user=user, code=otp_code)
-
-        # --- UPDATED SUBJECT LINE HERE ---
         subject = f"[{otp_code}] Verification Code - Student Hub 🎓"
-        
-        # Plain text version for old email clients
-        plain_message = f"Hi {user.first_name}, Your code is: {otp_code}"
-        # HTML version
         html_content = get_otp_html_content(user.first_name, otp_code)
-        
-        from_email = settings.DEFAULT_FROM_EMAIL
-        recipient_list = [user.email]
-
-        # Pass html_message to the thread
-        EmailThread(subject, plain_message, from_email, recipient_list, html_message=html_content).start()
+        EmailThread(subject, f"Code: {otp_code}", settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_content).start()
 
 # --- 3. Verify Email ---
 class VerifyEmailView(generics.GenericAPIView):
     permission_classes = [AllowAny]
-
     def post(self, request):
         otp_code = request.data.get('otp')
         try:
             otp_obj = OneTimePassword.objects.get(code=otp_code)
             user = otp_obj.user
-            
             if not user.is_active:
                 user.is_active = True
                 user.is_email_verified = True
                 user.save()
                 otp_obj.delete()
-                return Response({'message': 'Account verified! You can now login.'}, status=status.HTTP_200_OK)
-            
-            return Response({'message': 'Account is already verified.'}, status=status.HTTP_200_OK)
-            
+                return Response({'message': 'Account verified!'}, status=status.HTTP_200_OK)
+            return Response({'message': 'Already verified.'}, status=status.HTTP_200_OK)
         except OneTimePassword.DoesNotExist:
-            return Response({'message': 'Invalid or expired OTP.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'message': 'Invalid OTP.'}, status=status.HTTP_404_NOT_FOUND)
 
-# --- 4. Resend OTP (With HTML Email) ---
+# --- 4. Resend OTP ---
 class ResendOTPView(generics.GenericAPIView):
     permission_classes = [AllowAny]
-
     def post(self, request):
         email = request.data.get('email')
         try:
             user = User.objects.get(email=email)
             if user.is_active:
-                return Response({'message': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response({'message': 'User already verified.'}, status=status.HTTP_400_BAD_REQUEST)
             otp_code = generate_otp()
-            OneTimePassword.objects.update_or_create(
-                user=user, 
-                defaults={'code': otp_code, 'created_at': timezone.now()}
-            )
-            
-            # --- NEW: HTML for Resend with OTP in Subject ---
-            subject = f"[{otp_code}] New Verification Code 🔐"
-            plain_message = f"Your new code is: {otp_code}"
+            OneTimePassword.objects.update_or_create(user=user, defaults={'code': otp_code, 'created_at': timezone.now()})
+            subject = f"[{otp_code}] New Verification Code"
             html_content = get_otp_html_content(user.first_name, otp_code)
-            
-            EmailThread(subject, plain_message, settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_content).start()
-            
-            return Response({'message': 'OTP resent successfully.'}, status=status.HTTP_200_OK)
+            EmailThread(subject, f"Code: {otp_code}", settings.DEFAULT_FROM_EMAIL, [user.email], html_message=html_content).start()
+            return Response({'message': 'OTP resent.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
 # --- 5. User Transactions ---
 class UserTransactionsView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    
     def get(self, request):
         from chat.models import Transaction 
         user = request.user
-        
         buy_txs = Transaction.objects.filter(buyer=user).select_related('product', 'seller').order_by('-created_at')
         sell_txs = Transaction.objects.filter(seller=user).select_related('product', 'buyer').order_by('-created_at')
         
         def format_tx(t, partner):
-            img_url = None
-            try:
-                if t.product and t.product.images.exists():
-                    img_url = t.product.images.first().image.url
-            except Exception:
-                img_url = None
-
-            days = 0
-            try:
-                if hasattr(t, 'get_days_left'):
-                    days = t.get_days_left()
-            except Exception:
-                days = 0
-
+            img_url = t.product.images.first().image.url if (t.product and t.product.images.exists()) else None
+            days = t.get_days_left() if hasattr(t, 'get_days_left') else 0
             return {
                 "id": t.id,
-                "product_title": t.product.title if t.product else "Unknown Item",
+                "product_title": t.product.title if t.product else "Unknown",
                 "product_price": t.product.price if t.product else 0,
                 "product_image": img_url,
                 "type": t.transaction_type, 
@@ -283,16 +263,14 @@ class UserTransactionsView(generics.GenericAPIView):
                 "days_left": days,
                 "partner": partner.username 
             }
-
         return Response({
             "purchases": [format_tx(t, t.seller) for t in buy_txs],
             "sales": [format_tx(t, t.buyer) for t in sell_txs]
         })
 
-# --- 6. Mark Item as Returned ---
+# --- 6. Mark Returned ---
 class MarkReturnedView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-
     def post(self, request, transaction_id):
         from chat.models import Transaction
         try:
@@ -300,36 +278,90 @@ class MarkReturnedView(generics.GenericAPIView):
             if trans.transaction_type == 'rent':
                 trans.status = 'returned'
                 trans.save()
-                return Response({"message": "Item marked as returned."})
-            return Response({"error": "Not a rental item."}, status=400)
+                return Response({"message": "Item returned."})
+            return Response({"error": "Not a rental."}, status=400)
         except Transaction.DoesNotExist:
             return Response({"error": "Transaction not found."}, status=404)
 
-# --- 7. Password Reset & Profile ---
-class PasswordResetRequestView(generics.GenericAPIView):
-    serializer_class = PasswordResetRequestSerializer
+# ====================================================
+#  🛑 DEBUG PASSWORD RESET REQUEST (Replaces Old One)
+# ====================================================
+class PasswordResetRequestView(APIView):
+    # This View is specifically designed to DEBUG why emails aren't sending
     permission_classes = [AllowAny]
+
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        email = request.data.get('email', '').strip()
+        print(f"🛑 DEBUG: Password reset requested for: '{email}'")
+
+        user = User.objects.filter(email__iexact=email).first()
+
+        if user:
+            print(f"✅ DEBUG: User found in DB: ID={user.id}, Email={user.email}")
+            
+            # Create Link
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            # ENSURE THIS MATCHES YOUR FRONTEND URL
+            frontend_url = "https://student-hub-frontend-gw6b.onrender.com"
+            reset_link = f"{frontend_url}/reset-password/{uid}/{token}"
+            
+            subject = 'Password Reset Request'
+            html_content = get_reset_html_content(reset_link)
+            
+            print("⏳ DEBUG: Attempting to send email via SendGrid...")
+            
+            try:
+                # We send Synchronously (not threaded) here so we can catch errors in the logs!
+                send_mail(
+                    subject=subject,
+                    message=f'Reset link: {reset_link}', # Plain text fallback
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False, # CRITICAL: This will make the error print to logs
+                    html_message=html_content
+                )
+                print("🚀 DEBUG: SendGrid accepted the email! Check SendGrid logs now.")
+            except Exception as e:
+                print(f"❌ DEBUG: Email sending FAILED. Error: {str(e)}")
+        
+        else:
+            print(f"❌ DEBUG: User NOT found. The email '{email}' is not in the database.")
+            # Print first 3 users to verify what IS in the database
+            all_users = list(User.objects.values_list('email', flat=True)[:3])
+            print(f"🧐 DEBUG: First 3 emails in DB: {all_users}")
+
+        # Always return success to frontend for security
         return Response({'message': 'If registered, email sent.'}, status=status.HTTP_200_OK)
 
+# --- 7. Confirm Password Reset ---
 class PasswordResetConfirmView(generics.GenericAPIView):
     serializer_class = SetNewPasswordSerializer
     permission_classes = [AllowAny]
+    
     def patch(self, request, uidb64, token):
-        return Response({'message': 'Password reset successful'}, status=status.HTTP_200_OK)
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"error": "Invalid Token"}, status=status.HTTP_400_BAD_REQUEST)
 
+        if default_token_generator.check_token(user, token):
+            serializer = self.serializer_class(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user.set_password(serializer.validated_data['password'])
+            user.save()
+            return Response({'message': 'Password reset successful'}, status=status.HTTP_200_OK)
+        
+        return Response({"error": "Invalid or expired token"}, status=status.HTTP_400_BAD_REQUEST)
+
+# --- 8. User Profile ---
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = RegisterSerializer
     def get_object(self):
         return self.request.user
 
-# --- 8. Unlock Admin ---
+# --- 9. Unlock Admin ---
 def unlock_admin(request):
-    """
-    Simple view to unlock admin access or show an unlock page.
-    """
-    if request.method == 'POST':
-        pass
     return render(request, 'unlock_admin.html')
