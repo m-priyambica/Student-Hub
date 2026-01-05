@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Force load the .env file
@@ -18,7 +18,6 @@ load_dotenv(env_path)
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ja(807@vi$^@a+illo9%9o31u%sh3n7$43rb$%#^&)al)-w0rn')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# This automatically sets DEBUG to False if running on Render
 DEBUG = 'RENDER' not in os.environ
 
 ALLOWED_HOSTS = [
@@ -30,39 +29,32 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-
 # Application definition
-
 INSTALLED_APPS = [
-    # --- 1. Cloudinary Storage MUST be at the top ---
-    'cloudinary_storage',
+    'cloudinary_storage', # 1. Cloudinary Storage First
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    # --- 2. Staticfiles comes AFTER Cloudinary ---
     'django.contrib.staticfiles',
     'django.contrib.postgres',
-    
-    # --- 3. Cloudinary SDK ---
     'cloudinary',
-
-    # --- 4. Third-party apps ---
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-
-    # --- 5. Our local apps ---
+    # Your apps
     'users',
     'products',
     'chat',
+    # SendGrid App (Required if using the library)
+    'sendgrid_backend',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # <--- Added for Static Files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -76,7 +68,7 @@ ROOT_URLCONF = 'api.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [], # Ensure you have your templates folder if using HTML emails
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -90,17 +82,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'api.wsgi.application'
 
-
 # Database
 DATABASES = {
    'default': dj_database_url.config(
-       # If running locally, use SQLite
        default='sqlite:///' + os.path.join(BASE_DIR, 'db.sqlite3'),
-       # If running on Render, use the Neon URL
        conn_max_age=600
    )
 }
-
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -110,22 +98,17 @@ AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
-
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-
-# --- Static Files Configuration (Django 5 Compatible) ---
+# Static Files
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
 MEDIA_URL = '/media/'
-# Note: MEDIA_ROOT is handled by Cloudinary backend automatically
 
-# --- Django 5 Storage Configuration (The Fix) ---
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
@@ -134,27 +117,21 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.StaticFilesStorage",
     },
 }
-
-# --- Compatibility Alias for Cloudinary (Crucial Fix for AttributeError) ---
 STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
 
-
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# Tell Django to use our custom User model
 AUTH_USER_MODEL = 'users.User'
 
-# --- CORS Configuration ---
+# CORS
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # Your React dev server
-     "http://127.0.0.1:5173",
+    'http://localhost:5173', 
+    "http://127.0.0.1:5173",
     'https://student-hub-frontend-gw6b.onrender.com'
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# --- DRF Configuration ---
+# DRF
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
@@ -162,41 +139,36 @@ REST_FRAMEWORK = {
     )
 }
 
-# --- SimpleJWT Configuration ---
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_USER_MODEL': AUTH_USER_MODEL,
 }
 
-# --- Custom Authentication Backend ---
 AUTHENTICATION_BACKENDS = [
     'users.backends.EmailOrUsernameBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# --- Cloudinary Configuration ---
-# Ensure these environment variables are set in Render Dashboard
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
-# --- EMAIL CONFIGURATION (Corrected for Gmail) ---
-# We replaced the SendGrid code with this Gmail code.
+# --- EMAIL CONFIGURATION (SENDGRID) ---
+# This matches your original request.
 
-if 'RENDER' in os.environ:
-    # Production (Render)
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_HOST = 'smtp.gmail.com'
-    EMAIL_PORT = 587
-    EMAIL_USE_TLS = True
-    EMAIL_HOST_USER = os.environ.get('priyambica1@gmail.com')
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-else:
-    # Local Development (Prints to Terminal)
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "sendgrid_backend.SendgridBackend"
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
 
-# This ensures errors are shown in logs if something goes wrong
+# Toggle Sandbox Mode
+# If DEBUG is True (Local), use Sandbox (fake sending)
+# If DEBUG is False (Render), Send Real Emails
+SENDGRID_SANDBOX_MODE_IN_DEBUG = False 
+
+# IMPORTANT: This email MUST be verified in SendGrid Dashboard
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "priyambica1@gmail.com")
+
+# Ensure we see errors in logs if it fails
 EMAIL_FAIL_SILENTLY = False
