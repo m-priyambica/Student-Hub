@@ -107,9 +107,12 @@ const AccountSettings = ({ user, setUser }) => {
         try {
             const res = await fetch("https://student-hub-quqc.onrender.com/auth/request-password-reset/", {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (res.ok) setTimedMessage(`Link sent to ${user.email}. Check Backend Terminal!`, "success");
+                headers: { "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json" 
+            },
+                body: JSON.stringify({ email: user.email })
+        });
+            if (res.ok) setTimedMessage(`Link sent to ${user.email}. Check your inbox!`, "success");
             else setTimedMessage("Failed to send email.", "error");
         } catch (err) { setTimedMessage("Connection failed.", "error"); }
         finally { setLoading(false); }

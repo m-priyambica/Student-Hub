@@ -335,7 +335,7 @@ const Dashboard = () => {
                         />
                         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
                             <span className={`px-2 py-1 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-lg backdrop-blur-md shadow-sm ${product.condition === 'new' ? 'bg-green-500/90 text-white' : 'bg-white/90 text-stone-800'}`}>{product.condition}</span>
-                            <span className={`px-2 py-1 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-lg backdrop-blur-md shadow-sm ${product.product_type === 'rent' ? 'bg-blue-500/90 text-white' : 'bg-orange-500/90 text-white'}`}>{product.product_type === 'rent' ? 'Rent' : 'Buy'}</span>
+                            <span className={`px-2 py-1 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded-lg backdrop-blur-md shadow-sm ${product.product_type === 'rent' ? 'bg-blue-500/90 text-white' : 'bg-orange-500/90 text-white'}`}>{product.product_type === 'rent' ? 'Rent' : 'Sale'}</span>
                         </div>
                         
                         <button 
