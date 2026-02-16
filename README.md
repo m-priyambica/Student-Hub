@@ -147,7 +147,7 @@ To run **Student Hub** locally, follow these steps to set up the backend API and
 
 Student Hub is built with a "security-first" approach to ensure a safe marketplace environment for students.
 
-* **Domain-Restricted Access:** * Registration is strictly enforced for college email addresses. 
+* **Domain-Restricted Access:** * Registration is strictly enforced for Stanley college email addresses. 
     * External users cannot create accounts, ensuring the community remains exclusive to verified students and staff.
 * **JWT Authentication:** * We use **JSON Web Tokens (SimpleJWT)** for secure, stateless authentication. 
     * Access tokens are short-lived, and refresh tokens are handled securely to maintain user sessions.
