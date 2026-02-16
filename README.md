@@ -35,19 +35,7 @@
 * **SQLite / PostgreSQL:** Database management for users, products, and transactions.
 * **SimpleJWT:** Secure authentication handling.
 
----
 
-
-## 🔧 Installation & Setup (Local Development)
-
-If you wish to run this project locally, follow these steps:
-
-### **1. Clone the Repository**
-```bash
-git clone [https://github.com/m-priyambica/student-hub.git](https://github.com/m-priyambica/student-hub.git)
-cd student-hub
-
-```
 ---
 ## 🔧 Installation & Setup
 
@@ -63,7 +51,7 @@ To run **Student Hub** locally, follow these steps to set up the backend API and
 
 1.  **Clone the Repository**
     ```bash
-    git clone [https://github.com/your-username/student-hub.git](https://github.com/your-username/student-hub.git)
+    git clone [https://github.com/m-priyambica/student-hub.git](https://github.com/m-priyambica/student-hub.git)
     cd student-hub/backend
     ```
 
