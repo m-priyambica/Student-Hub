@@ -81,6 +81,7 @@ const AccountSettings = ({ user, setUser }) => {
             const payload = {
                 first_name: user.first_name,
                 last_name: user.last_name,
+                full_name: `${user.first_name || ""} ${user.last_name || ""}`.trim(),
                 username: user.username,
                 branch: user.branch,
                 semester: user.semester,
@@ -274,22 +275,23 @@ const Profile = () => {
                 const userId = uData.id || payload.user_id;
                 setUser({ ...uData, id: userId }); 
 
-                // 2. Fetch All Products (and filter for Listings)
-                const pRes = await fetch("https://student-hub-quqc.onrender.com/api/products/", { headers: { "Authorization": `Bearer ${token}` }});
+                // 2. Fetch dashboard data in parallel for faster load
+                const [pRes, tRes, cRes] = await Promise.all([
+                    fetch("https://student-hub-quqc.onrender.com/api/products/", { headers: { "Authorization": `Bearer ${token}` }}),
+                    fetch("https://student-hub-quqc.onrender.com/api/auth/transactions/", { headers: { "Authorization": `Bearer ${token}` }}),
+                    fetch("https://student-hub-quqc.onrender.com/api/products/categories/")
+                ]);
+
                 const pData = await pRes.json();
                 if (Array.isArray(pData)) {
                     setMyListings(pData.filter(p => String(p.seller.id || p.seller) === String(userId)));
                 }
 
-                // 3. Fetch Transactions
-                const tRes = await fetch("https://student-hub-quqc.onrender.com/api/auth/transactions/", { headers: { "Authorization": `Bearer ${token}` }});
                 if (tRes.ok) {
                     const tData = await tRes.json();
                     setTransactions(tData);
                 }
 
-                // 4. Fetch Categories
-                const cRes = await fetch("https://student-hub-quqc.onrender.com/api/products/categories/");
                 const cData = await cRes.json();
                 setCategories(cData);
 
@@ -300,7 +302,7 @@ const Profile = () => {
             }
         };
         init();
-    }, [navigate, activeTab]);
+    }, [navigate]);
 
     // --- Actions ---
 

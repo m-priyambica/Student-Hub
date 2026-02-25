@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { 
     Send, ArrowLeft, Package, MessageCircle, 
     CheckCircle, DollarSign, Loader2, ShieldCheck, Trash2
@@ -50,6 +50,7 @@ const DealModal = ({ isOpen, onClose, product, buyerName, onConfirm, loading }) 
 // --- MAIN CHAT ---
 const Chat = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const scrollRef = useRef(null);
     
     // State
@@ -93,6 +94,16 @@ const Chat = () => {
         init();
     }, [navigate]);
 
+
+    useEffect(() => {
+        const requestedRoomId = location.state?.roomId;
+        if (!requestedRoomId || chats.length === 0) return;
+
+        const targetRoom = chats.find(chat => String(chat.id) === String(requestedRoomId));
+        if (targetRoom) {
+            setActiveChat(targetRoom);
+        }
+    }, [chats, location.state]);
     // 2. Load Messages (With SMART POLLING)
     useEffect(() => {
         if (!activeChat) return;
