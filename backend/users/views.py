@@ -65,6 +65,7 @@ def get_otp_html_content(name, otp):
                 <p style="color: #4b5563; font-size: 14px; margin: 5px 0 0; line-height: 1.5;">
                     Got a drafter, books, or gadgets gathering dust? <strong>Add Product</strong> easily. You can choose to <strong>Sell</strong> it permanently or just <strong>Rent</strong> it out for the semester to make some quick pocket money.
                 </p>
+                <p style="color: #ea580c; font-size: 14px; font-weight: 700; margin: 8px 0 0;">Add your details in Profile → Settings → so buyers can trust and connect faster.</p>
             </div>
 
             <div style="margin-bottom: 20px;">
