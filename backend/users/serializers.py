@@ -99,3 +99,25 @@ class SetNewPasswordSerializer(serializers.Serializer):
         if attrs.get('password') != attrs.get('confirm_password'):
             raise serializers.ValidationError({"password": "Password and Confirm Password do not match."})
         return attrs
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'full_name', 'branch', 'semester', 'section'
+        )
+        read_only_fields = ('id', 'email')
+
+    def update(self, instance, validated_data):
+        first_name = validated_data.get('first_name', instance.first_name)
+        last_name = validated_data.get('last_name', instance.last_name)
+
+        # Keep full_name consistent when first/last name is updated from settings.
+        if 'full_name' not in validated_data:
+            combined = f"{first_name} {last_name}".strip()
+            if combined:
+                validated_data['full_name'] = combined
+
+        return super().update(instance, validated_data)

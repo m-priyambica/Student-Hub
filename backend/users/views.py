@@ -8,7 +8,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from .models import OneTimePassword, User
-from .serializers import RegisterSerializer, LoginSerializer, SetNewPasswordSerializer
+from .serializers import RegisterSerializer, LoginSerializer, SetNewPasswordSerializer, UserProfileSerializer
 from .utils import generate_otp
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -359,7 +359,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 # --- 8. User Profile ---
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = RegisterSerializer
+    serializer_class = UserProfileSerializer
     def get_object(self):
         return self.request.user
 

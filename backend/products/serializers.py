@@ -12,7 +12,7 @@ class SellerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'username', 'branch', 'semester', 'section']
+        fields = ['id', 'first_name', 'last_name', 'full_name', 'username', 'branch', 'semester', 'section']
 
     def get_student_detail(self, user_obj, field_name):
         """
