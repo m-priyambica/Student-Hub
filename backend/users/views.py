@@ -8,7 +8,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from .models import OneTimePassword, User
-from .serializers import RegisterSerializer, LoginSerializer, SetNewPasswordSerializer
+from .serializers import RegisterSerializer, LoginSerializer, SetNewPasswordSerializer, UserProfileSerializer
 from .utils import generate_otp
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -65,6 +65,7 @@ def get_otp_html_content(name, otp):
                 <p style="color: #4b5563; font-size: 14px; margin: 5px 0 0; line-height: 1.5;">
                     Got a drafter, books, or gadgets gathering dust? <strong>Add Product</strong> easily. You can choose to <strong>Sell</strong> it permanently or just <strong>Rent</strong> it out for the semester to make some quick pocket money.
                 </p>
+                <p style="color: #ea580c; font-size: 14px; font-weight: 700; margin: 8px 0 0;">Add your details in Profile → Settings → so buyers can trust and connect faster.</p>
             </div>
 
             <div style="margin-bottom: 20px;">
@@ -359,7 +360,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 # --- 8. User Profile ---
 class UserProfileView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = RegisterSerializer
+    serializer_class = UserProfileSerializer
     def get_object(self):
         return self.request.user
 
