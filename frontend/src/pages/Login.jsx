@@ -29,6 +29,7 @@ const Login = () => {
     return () => clearInterval(typingInterval);
   }, []);
 
+
   const emailCandidate = username.includes("@") ? username.trim().toLowerCase() : "";
 
   const handleGoToVerify = () => {
@@ -43,6 +44,7 @@ const Login = () => {
   const handleResendOtp = async () => {
     if (!emailCandidate) {
       setError("Please enter your registered email in the username field, then tap Resend OTP.");
+
       return;
     }
 
@@ -51,6 +53,7 @@ const Login = () => {
       const response = await fetch("https://student-hub-quqc.onrender.com/api/auth/resend-otp/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+
         body: JSON.stringify({ email: emailCandidate }),
       });
       const data = await response.json();
@@ -59,6 +62,7 @@ const Login = () => {
       } else {
         setError(data.message || "Failed to resend OTP. Try again.");
       }
+
     } catch (err) {
       setError("Unable to connect to the server.");
     } finally {
@@ -92,7 +96,9 @@ const Login = () => {
         // Handle array of errors or simple string
         const errMsg = data.detail || (data.non_field_errors ? data.non_field_errors[0] : "Invalid credentials.");
         setError(errMsg);
+
         setShowVerificationHelp(errMsg.toLowerCase().includes("verify your email"));
+
         setIsLoading(false);
       }
     } catch (err) {
@@ -139,12 +145,14 @@ const Login = () => {
         {showVerificationHelp && (
             <div className="w-full mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm">
                 <div className="flex items-center gap-2 font-semibold mb-2">
+
                     <MailCheck className="w-4 h-4" /> Your account exists but email is not verified.
                 </div>
                 <div className="flex gap-2">
                     <button type="button" onClick={handleGoToVerify} className="px-3 py-1.5 rounded-md bg-orange-600 text-white font-semibold text-xs">Open Verify Page</button>
                     <button type="button" onClick={handleResendOtp} disabled={resendingOtp} className="px-3 py-1.5 rounded-md border border-orange-300 font-semibold text-xs disabled:opacity-60">{resendingOtp ? "Sending..." : "Resend OTP"}</button>
                 </div>
+
             </div>
         )}
 

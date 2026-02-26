@@ -10,6 +10,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,6 +20,7 @@ const Register = () => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setInfo("");
 
     try {
         const response = await fetch("https://student-hub-quqc.onrender.com/api/auth/register/", {
@@ -30,9 +32,13 @@ const Register = () => {
         const data = await response.json();
 
         if (response.ok) {
-            // FIX: Save email to localStorage so mobile refresh works on OTP page
-            localStorage.setItem("pendingVerificationEmail", formData.email);
-            navigate("/verify-email", { state: { email: formData.email } });
+            if (data.username_conflict) {
+                setInfo(data.message || "OTP sent, but username is taken. Try another username and submit again.");
+            } else {
+                // Save email to localStorage so mobile refresh works on OTP page
+                localStorage.setItem("pendingVerificationEmail", formData.email);
+                navigate("/verify-email", { state: { email: formData.email, emailSent: true } });
+            }
         } else {
             const errorMsg = typeof data === 'string' ? data : Object.values(data).flat().join(" ");
             setError(errorMsg || "Registration failed.");
@@ -74,6 +80,12 @@ const Register = () => {
         {error && (
             <div className="bg-red-50 border-l-4 border-red-500 text-red-600 px-6 py-4 rounded-2xl mb-8 text-sm font-bold animate-pulse text-center">
                 {error}
+            </div>
+        )}
+
+        {info && (
+            <div className="bg-blue-50 border-l-4 border-blue-500 text-blue-700 px-6 py-4 rounded-2xl mb-8 text-sm font-bold text-center">
+                {info}
             </div>
         )}
 

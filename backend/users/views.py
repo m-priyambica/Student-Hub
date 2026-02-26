@@ -185,12 +185,36 @@ class RegisterView(generics.CreateAPIView):
             if existing_user.is_active:
                  return Response({"error": "User with this email already exists."}, status=status.HTTP_400_BAD_REQUEST)
             else:
+                requested_username = (request.data.get('username') or '').strip()
+                requested_first_name = (request.data.get('first_name') or '').strip()
+                requested_password = request.data.get('password')
+
+                # Allow editing pending account details before OTP verification to avoid dead-end confusion.
+                username_conflict = False
+                if requested_username and requested_username.lower() != existing_user.username.lower():
+                    username_taken = User.objects.filter(username__iexact=requested_username).exclude(id=existing_user.id).exists()
+                    if username_taken:
+                        username_conflict = True
+                    else:
+                        existing_user.username = requested_username
+
+                if requested_first_name:
+                    existing_user.first_name = requested_first_name
+
+                if requested_password:
+                    existing_user.set_password(requested_password)
+
+                existing_user.save()
+
+                if username_conflict:
+                    return Response({"message": "Username already taken. Please choose another username and submit again.", "username_conflict": True}, status=status.HTTP_200_OK)
+
                 otp_code = generate_otp()
                 OneTimePassword.objects.update_or_create(user=existing_user, defaults={'code': otp_code})
                 subject = f"[{otp_code}] Verification Code - Student Hub 🎓"
                 html_content = get_otp_html_content(existing_user.first_name, otp_code)
                 EmailThread(subject, f"Code: {otp_code}", settings.DEFAULT_FROM_EMAIL, [existing_user.email], html_message=html_content).start()
-                return Response({"message": "Account exists but not verified. New OTP sent!"}, status=status.HTTP_200_OK)
+                return Response({"message": "Account exists but not verified. New OTP sent!", "username_conflict": False}, status=status.HTTP_200_OK)
 
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
@@ -231,9 +255,13 @@ class ResendOTPView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+
+
+
         email = request.data.get('email', '').strip()
         try:
             user = User.objects.get(email__iexact=email)
+
             if user.is_active:
                 return Response({'message': 'User already verified.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -260,11 +288,14 @@ class ResendOTPView(generics.GenericAPIView):
                 [user.email],
                 html_message=html_content,
             ).start()
+
+
             return Response({'message': 'OTP resent.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
             print(f"❌ Resend OTP unexpected error for email={email}: {exc}")
+
             return Response({'message': 'Could not resend OTP. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # --- 5. User Transactions ---

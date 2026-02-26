@@ -52,25 +52,31 @@ class LoginSerializer(serializers.Serializer):
     refresh = serializers.CharField(read_only=True)
 
     def validate(self, data):
-        username_or_email = data.get('username', '')
+        username_or_email = data.get('username', '').strip()
         password = data.get('password', '')
-        
-        # LOGIC: Check if input looks like an email
+
+        # Resolve account by email or username (case-insensitive) for clearer login errors.
+        candidate_user = None
         if '@' in username_or_email:
-            user_obj = User.objects.filter(email=username_or_email).first()
-            if user_obj:
-                # If email exists, use the actual username for authentication
-                username_or_email = user_obj.username
-        
+            candidate_user = User.objects.filter(email__iexact=username_or_email).first()
+        else:
+            candidate_user = User.objects.filter(username__iexact=username_or_email).first()
+
+        if candidate_user and not candidate_user.is_active:
+            raise AuthenticationFailed('Email not verified. Please verify your email via OTP first.')
+
+        # For auth backend compatibility, login using real username if we found the user by email/ci username.
+        resolved_username = candidate_user.username if candidate_user else username_or_email
+
         # Standard Django authentication
-        user = authenticate(username=username_or_email, password=password)
-        
+        user = authenticate(username=resolved_username, password=password)
+
         if not user:
             raise AuthenticationFailed('Invalid credentials. Please check your username/email and password.')
-        
-        # CRITICAL FIX: Block login if they haven't verified OTP yet
+
+        # Safety check (should normally be caught above)
         if not user.is_active:
-            raise AuthenticationFailed('Account disabled. Please verify your email via OTP first.')
+            raise AuthenticationFailed('Email not verified. Please verify your email via OTP first.')
             
         # Generate Tokens
         try:
