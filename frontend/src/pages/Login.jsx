@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom"; 
-import { User, Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { User, Lock, ArrowRight, Loader2, AlertCircle, Eye, EyeOff, MailCheck } from "lucide-react";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -9,6 +9,8 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(""); 
   const [displayedText, setDisplayedText] = useState("");
+  const [showVerificationHelp, setShowVerificationHelp] = useState(false);
+  const [resendingOtp, setResendingOtp] = useState(false);
   
   const navigate = useNavigate(); 
   const fullText = "Hey Stanley Mate";
@@ -22,14 +24,53 @@ const Login = () => {
       } else {
         clearInterval(typingInterval);
       }
-    }, 100); 
+    }, 100);
+
     return () => clearInterval(typingInterval);
   }, []);
+
+  const emailCandidate = username.includes("@") ? username.trim().toLowerCase() : "";
+
+  const handleGoToVerify = () => {
+    if (emailCandidate) {
+      localStorage.setItem("pendingVerificationEmail", emailCandidate);
+      navigate("/verify-email", { state: { email: emailCandidate } });
+      return;
+    }
+    navigate("/verify-email");
+  };
+
+  const handleResendOtp = async () => {
+    if (!emailCandidate) {
+      setError("Please enter your registered email in the username field, then tap Resend OTP.");
+      return;
+    }
+
+    setResendingOtp(true);
+    try {
+      const response = await fetch("https://student-hub-quqc.onrender.com/api/auth/resend-otp/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailCandidate }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setError("OTP resent successfully. Check inbox/spam and verify your email.");
+      } else {
+        setError(data.message || "Failed to resend OTP. Try again.");
+      }
+    } catch (err) {
+      setError("Unable to connect to the server.");
+    } finally {
+      setResendingOtp(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setShowVerificationHelp(false);
 
     try {
       // Sending 'username' key, but value can be email or username
@@ -51,6 +92,7 @@ const Login = () => {
         // Handle array of errors or simple string
         const errMsg = data.detail || (data.non_field_errors ? data.non_field_errors[0] : "Invalid credentials.");
         setError(errMsg);
+        setShowVerificationHelp(errMsg.toLowerCase().includes("verify your email"));
         setIsLoading(false);
       }
     } catch (err) {
@@ -91,6 +133,18 @@ const Login = () => {
             <div className="w-full mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-600 text-sm animate-pulse">
                 <AlertCircle className="w-4 h-4 mr-2" />
                 {error}
+            </div>
+        )}
+
+        {showVerificationHelp && (
+            <div className="w-full mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-orange-700 text-sm">
+                <div className="flex items-center gap-2 font-semibold mb-2">
+                    <MailCheck className="w-4 h-4" /> Your account exists but email is not verified.
+                </div>
+                <div className="flex gap-2">
+                    <button type="button" onClick={handleGoToVerify} className="px-3 py-1.5 rounded-md bg-orange-600 text-white font-semibold text-xs">Open Verify Page</button>
+                    <button type="button" onClick={handleResendOtp} disabled={resendingOtp} className="px-3 py-1.5 rounded-md border border-orange-300 font-semibold text-xs disabled:opacity-60">{resendingOtp ? "Sending..." : "Resend OTP"}</button>
+                </div>
             </div>
         )}
 
