@@ -13,6 +13,7 @@ const PLACEHOLDERS = [
     "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?q=80&w=1000",
 ];
 const getPlaceholder = (id) => PLACEHOLDERS[id % PLACEHOLDERS.length];
+const API_BASE_URL = "https://student-hub-quqc.onrender.com";
 
 // Basic "Bad Word" Filter (Client side validation for posting)
 const BAD_WORDS = ["stupid", "idiot", "scam", "fake", "badword"]; 
@@ -128,7 +129,10 @@ const Dashboard = () => {
             body: JSON.stringify({ product_id: product.id })
         });
         if (response.ok) {
-            handleOpenChat(); 
+            const data = await response.json();
+            localStorage.setItem("lastChatVisit", new Date().toISOString());
+            setHasUnread(false);
+            navigate("/chat", { state: { roomId: data.room_id } });
         } else {
             alert("Could not start chat.");
         }
@@ -328,7 +332,7 @@ const Dashboard = () => {
                 >
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-stone-100">
                         <img 
-                            src={product.images && product.images.length > 0 ? (product.images[0].image.startsWith('http') ? product.images[0].image : `http://127.0.0.1:8000${product.images[0].image}`) : getPlaceholder(product.id)} 
+                            src={product.images && product.images.length > 0 ? (product.images[0].image.startsWith('http') ? product.images[0].image : `${API_BASE_URL}${product.images[0].image}`) : getPlaceholder(product.id)} 
                             alt={product.title} 
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
                             onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholder(product.id); }} 

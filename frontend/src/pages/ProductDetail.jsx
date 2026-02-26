@@ -30,10 +30,6 @@ const ProductDetail = () => {
         return res.json();
     })
     .then(data => {
-        // DEBUG: Check your console to see if branch/sem are arriving!
-        console.log("Full Product Data Received:", data); 
-        console.log("Seller Data:", data.seller);
-
         setProduct(data);
         const firstImg = data.images.length > 0 ? getImageUrl(data.images[0].image) : "https://via.placeholder.com/600";
         setActiveImage(firstImg);
@@ -66,8 +62,10 @@ const ProductDetail = () => {
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
             body: JSON.stringify({ product_id: product.id })
         });
-        if (response.ok) navigate("/chat"); 
-        else alert("Could not start chat.");
+        if (response.ok) {
+            const data = await response.json();
+            navigate("/chat", { state: { roomId: data.room_id } });
+        } else alert("Could not start chat.");
     } catch (err) { alert("Connection error."); }
   };
 
@@ -82,7 +80,8 @@ const ProductDetail = () => {
         const s = product.seller;
         
         // 1. Name
-        if (s.first_name || s.last_name) name = `${s.first_name || ""} ${s.last_name || ""}`.trim();
+        if (s.full_name && s.full_name.trim()) name = s.full_name.trim();
+        else if (s.first_name || s.last_name) name = `${s.first_name || ""} ${s.last_name || ""}`.trim();
         else if (s.username) name = s.username;
 
         // 2. Details (Smart Construction)
