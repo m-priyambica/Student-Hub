@@ -255,12 +255,12 @@ class ResendOTPView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        identifier = (request.data.get('email') or request.data.get('identifier') or '').strip()
+
+
+
+        email = request.data.get('email', '').strip()
         try:
-            if '@' in identifier:
-                user = User.objects.get(email__iexact=identifier)
-            else:
-                user = User.objects.get(username__iexact=identifier)
+            user = User.objects.get(email__iexact=email)
 
             if user.is_active:
                 return Response({'message': 'User already verified.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -288,11 +288,14 @@ class ResendOTPView(generics.GenericAPIView):
                 [user.email],
                 html_message=html_content,
             ).start()
-            return Response({'message': 'OTP resent.', 'email': user.email}, status=status.HTTP_200_OK)
+
+
+            return Response({'message': 'OTP resent.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as exc:
-            print(f"❌ Resend OTP unexpected error for identifier={identifier}: {exc}")
+            print(f"❌ Resend OTP unexpected error for email={email}: {exc}")
+
             return Response({'message': 'Could not resend OTP. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # --- 5. User Transactions ---
