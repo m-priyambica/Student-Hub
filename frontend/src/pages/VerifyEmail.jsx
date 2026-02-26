@@ -25,6 +25,7 @@ const VerifyEmail = () => {
         // alert("Session expired. Please register again.");
         // navigate("/register");
     }
+
   }, [location, navigate]);
 
   const handleVerify = async (e) => {
@@ -96,12 +97,6 @@ const VerifyEmail = () => {
                 {loading ? <Loader2 className="animate-spin w-6 h-6" /> : "Verify Account"}
             </button>
         </form>
-        
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl shadow-sm">
-            <p className="text-sm text-green-700 font-medium">
-                Didn't see the email? Please check your <b className="font-bold">Spam</b> or <b className="font-bold">Promotions</b> folder.
-            </p>
-        </div>
 
         <p className="mt-8 text-slate-400 text-sm font-medium">
             Didn't get the email? 

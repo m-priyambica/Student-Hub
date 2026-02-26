@@ -8,6 +8,34 @@
 
 ---
 
+
+## ☁️ Render Deployment Quick Checklist
+
+If your deployed app feels slow or shows occasional "Server connection failed" on first request, use this setup:
+
+1. **Build Command**
+   ```bash
+   pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+   ```
+
+2. **Start Command**
+   ```bash
+   gunicorn api.wsgi:application
+   ```
+
+3. **Required Environment Variables**
+   - `SENDGRID_API_KEY`
+   - `DEFAULT_FROM_EMAIL`
+   - `SECRET_KEY`
+   - `DATABASE_URL` (if using external Postgres)
+
+4. **Why this helps**
+   - `collectstatic` removes staticfiles warnings in logs and improves admin/static reliability.
+   - `migrate` ensures new schema changes are applied at deploy.
+   - Proper email env vars prevent intermittent OTP email failures in production.
+
+---
+
 ## ✨ Key Features
 
 * **🔒 Verified Student Access:** Sign-up is restricted to valid college email to ensure a trusted community.
