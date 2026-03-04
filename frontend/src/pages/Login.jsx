@@ -88,10 +88,8 @@ const Login = () => {
 
       if (response.ok) {
         localStorage.setItem("access_token", data.access);
-        setTimeout(() => {
-            setIsLoading(false);
-            navigate("/dashboard"); 
-        }, 500);
+        setIsLoading(false);
+        navigate("/dashboard");
       } else {
         // Handle array of errors or simple string
         const errMsg = data.detail || (data.non_field_errors ? data.non_field_errors[0] : "Invalid credentials.");
