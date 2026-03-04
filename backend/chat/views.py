@@ -9,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 # --- IMPORTS FOR EMAIL ---
 from users.views import EmailThread
@@ -56,6 +58,13 @@ def send_message(request, room_id):
 
         # SAVE TO DB
         msg = Message.objects.create(room=room, sender=request.user, text=text)
+        payload = {"id": msg.id, "text": msg.text, "senderId": msg.sender.id, "timestamp": msg.timestamp.isoformat()}
+
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"chat_{room.id}",
+            {"type": "chat_message", "message": payload}
+        )
         
         # --- SMART EMAIL NOTIFICATION LOGIC ---
         # 1. Check if the chat is currently "Active" (Live)
@@ -102,7 +111,7 @@ def send_message(request, room_id):
             print("🔕 Notification skipped (User is likely online)")
         # --------------------------------
 
-        return Response({"id": msg.id, "text": msg.text, "senderId": msg.sender.id, "timestamp": msg.timestamp})
+        return Response(payload)
     except Room.DoesNotExist:
         return Response({"error": "Room not found"}, status=404)
 
