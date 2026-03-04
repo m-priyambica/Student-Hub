@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { 
     LogOut, ShoppingBag, MessageCircle, Search, Plus, 
     Zap, BookOpen, Monitor, PenTool, Trophy, Tag,
-    X, Image as ImageIcon, Loader2, User as UserIcon, Filter, RotateCcw
+    X, Image as ImageIcon, Loader2, User as UserIcon, Filter, RotateCcw, ChevronDown
 } from "lucide-react";
+import Toast from "../components/ui/Toast";
 
 // Fallback images
 const PLACEHOLDERS = [
@@ -36,6 +37,8 @@ const Dashboard = () => {
   const [filterType, setFilterType] = useState("all");          
   const [searchQuery, setSearchQuery] = useState(""); 
   const [showFilters, setShowFilters] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +51,7 @@ const Dashboard = () => {
 
   // --- 1. FETCH CATEGORIES ---
   const fetchCategories = async () => {
+    setCategoriesLoading(true);
     try {
         const res = await fetch("https://student-hub-quqc.onrender.com/api/products/categories/");
         if (res.ok) {
@@ -55,7 +59,12 @@ const Dashboard = () => {
             const uniqueCats = ["All", ...data.filter(c => c !== "All")];
             setCategories(uniqueCats);
         }
-    } catch (err) { console.error("Failed to load categories", err); }
+    } catch (err) {
+      console.error("Failed to load categories", err);
+      setToast({ type: "error", message: "Could not load categories right now." });
+    } finally {
+      setCategoriesLoading(false);
+    }
   };
 
   // --- 2. FETCH PRODUCTS (SERVER SIDE FILTERING) ---
@@ -121,7 +130,7 @@ const Dashboard = () => {
   const handleChatStart = async (e, product) => {
     e.stopPropagation(); 
     const token = localStorage.getItem("access_token");
-    if (!token) return alert("Please login to chat.");
+    if (!token) return setToast({ type: "info", message: "Please login to start chatting." });
     try {
         const response = await fetch("https://student-hub-quqc.onrender.com/api/chat/start/", {
             method: "POST",
@@ -134,14 +143,14 @@ const Dashboard = () => {
             setHasUnread(false);
             navigate("/chat", { state: { roomId: data.room_id } });
         } else {
-            alert("Could not start chat.");
+            setToast({ type: "error", message: "Could not start chat for this item." });
         }
-    } catch (err) { alert("Connection error."); }
+    } catch (err) { setToast({ type: "error", message: "Connection error while starting chat." }); }
   };
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (containsBadWords(newProduct.category)) return alert("Please use appropriate category names.");
+    if (containsBadWords(newProduct.category)) return setToast({ type: "error", message: "Please use appropriate category names." });
 
     setSubmitting(true);
     const token = localStorage.getItem("access_token");
@@ -162,13 +171,13 @@ const Dashboard = () => {
         });
         if (response.ok) {
             setIsModalOpen(false);
-            alert("Item listed successfully! 🛍️");
+            setToast({ type: "success", message: "Item listed successfully! 🛍️" });
             setNewProduct({ title: "", description: "", price: "", category: "Textbooks", condition: "used", product_type: "sale", images: [] });
             setCustomCategoryMode(false);
             fetchProducts(); // Refresh list to show new item
             fetchCategories();
-        } else { alert("Failed to create product. Check inputs."); }
-    } catch (error) { alert("Server error."); } 
+        } else { setToast({ type: "error", message: "Failed to create product. Check inputs." }); }
+    } catch (error) { setToast({ type: "error", message: "Server error while creating product." }); } 
     finally { setSubmitting(false); }
   };
 
@@ -202,6 +211,7 @@ const Dashboard = () => {
   }, []);
 
   return (
+    <>
     <div className="min-h-screen bg-[#fafaf9] font-sans text-stone-800 pb-20 relative">
       
       {/* NAVBAR */}
@@ -293,9 +303,12 @@ const Dashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5 block">Category</label>
-                        <select value={activeCategory} onChange={(e) => setActiveCategory(e.target.value)} className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-orange-500 font-bold text-stone-700 text-sm">
-                            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                        </select>
+                        <div className="relative">
+                            <select value={activeCategory} disabled={categoriesLoading} onChange={(e) => setActiveCategory(e.target.value)} className="appearance-none w-full p-2.5 pr-9 bg-stone-50 border border-stone-200 rounded-xl focus:outline-none focus:border-orange-500 font-bold text-stone-700 text-sm disabled:opacity-60">
+                                {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            </select>
+                            {categoriesLoading ? <Loader2 className="h-4 w-4 animate-spin text-stone-400 absolute right-3 top-3"/> : <ChevronDown className="h-4 w-4 text-stone-400 absolute right-3 top-3 pointer-events-none"/>}
+                        </div>
                     </div>
                     <div>
                         <label className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1.5 block">Condition</label>
@@ -402,10 +415,13 @@ const Dashboard = () => {
                                     <button type="button" onClick={() => setCustomCategoryMode(false)} className="absolute right-2 top-3 text-xs font-bold text-stone-400 hover:text-stone-600">CANCEL</button>
                                 </div>
                             ) : (
-                                <select className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 transition-all" value={newProduct.category} onChange={e => { if (e.target.value === "custom") { setCustomCategoryMode(true); setNewProduct({...newProduct, category: ""}); } else { setNewProduct({...newProduct, category: e.target.value}); } }}>
-                                    {categories.filter(c => c !== "All").map(cat => ( <option key={cat} value={cat}>{cat}</option> ))}
-                                    <option value="custom" className="font-bold text-orange-600">+ Type New Category...</option>
-                                </select>
+                                <div className="relative">
+                                    <select className="appearance-none w-full p-3 pr-10 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 transition-all" value={newProduct.category} onChange={e => { if (e.target.value === "custom") { setCustomCategoryMode(true); setNewProduct({...newProduct, category: ""}); } else { setNewProduct({...newProduct, category: e.target.value}); } }}>
+                                        {categories.filter(c => c !== "All").map(cat => ( <option key={cat} value={cat}>{cat}</option> ))}
+                                        <option value="custom" className="font-bold text-orange-600">+ Type New Category...</option>
+                                    </select>
+                                    <ChevronDown className="h-4 w-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -413,8 +429,8 @@ const Dashboard = () => {
                     <div><label className="block text-sm font-bold text-gray-700 mb-1">Description</label><textarea required className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500 transition-all h-24 resize-none" placeholder="Describe the condition, usage, etc." value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})}></textarea></div>
                     
                     <div className="flex gap-4">
-                        <select className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500" value={newProduct.condition} onChange={e => setNewProduct({...newProduct, condition: e.target.value})}><option value="new">Brand New</option><option value="used">Used</option></select>
-                        <select className="flex-1 p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500" value={newProduct.product_type} onChange={e => setNewProduct({...newProduct, product_type: e.target.value})}><option value="sale">For Sale</option><option value="rent">For Rent</option></select>
+                        <div className="relative flex-1"><select className="appearance-none w-full p-3 pr-10 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500" value={newProduct.condition} onChange={e => setNewProduct({...newProduct, condition: e.target.value})}><option value="new">Brand New</option><option value="used">Used</option></select><ChevronDown className="h-4 w-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"/></div>
+                        <div className="relative flex-1"><select className="appearance-none w-full p-3 pr-10 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:border-orange-500" value={newProduct.product_type} onChange={e => setNewProduct({...newProduct, product_type: e.target.value})}><option value="sale">For Sale</option><option value="rent">For Rent</option></select><ChevronDown className="h-4 w-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"/></div>
                     </div>
 
                     <div className={`border-2 border-dashed rounded-xl p-4 text-center transition-colors cursor-pointer relative ${newProduct.images.length === 0 ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:bg-gray-50'}`}>
@@ -435,6 +451,8 @@ const Dashboard = () => {
         </div>
       )}
     </div>
+    <Toast toast={toast} onClose={() => setToast(null)} />
+    </>
   );
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, MessageCircle, MapPin, ShieldCheck, BookOpen } from "lucide-react";
+import { ArrowLeft, MessageCircle, MapPin, ShieldCheck, BookOpen, Loader2 } from "lucide-react";
+import Toast from "../components/ui/Toast";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -10,6 +11,8 @@ const ProductDetail = () => {
   const [similarProducts, setSimilarProducts] = useState([]);
   const [activeImage, setActiveImage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [startingChat, setStartingChat] = useState(false);
+  const [toast, setToast] = useState(null);
 
   // --- HELPER: Fix Image URLs ---
   const getImageUrl = (path) => {
@@ -55,7 +58,8 @@ const ProductDetail = () => {
 
   const handleChatStart = async () => {
     const token = localStorage.getItem("access_token");
-    if (!token) return alert("Please login to chat.");
+    if (!token) return setToast({ type: "info", message: "Please login to chat." });
+    setStartingChat(true);
     try {
         const response = await fetch("https://student-hub-quqc.onrender.com/api/chat/start/", {
             method: "POST",
@@ -65,8 +69,9 @@ const ProductDetail = () => {
         if (response.ok) {
             const data = await response.json();
             navigate("/chat", { state: { roomId: data.room_id } });
-        } else alert("Could not start chat.");
-    } catch (err) { alert("Connection error."); }
+        } else setToast({ type: "error", message: "Could not start chat." });
+    } catch (err) { setToast({ type: "error", message: "Connection error." }); }
+    finally { setStartingChat(false); }
   };
 
   // --- GET SELLER INFO ---
@@ -161,8 +166,8 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="mt-auto">
-                    <button onClick={handleChatStart} className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-orange-100 hover:bg-orange-700 transition-transform active:scale-95 flex items-center justify-center gap-2">
-                        <MessageCircle className="h-5 w-5" /> Chat with Seller
+                    <button onClick={handleChatStart} disabled={startingChat} className="w-full bg-orange-600 text-white py-4 rounded-xl font-bold text-lg shadow-xl shadow-orange-100 hover:bg-orange-700 disabled:opacity-70 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                        {startingChat ? <><Loader2 className="h-5 w-5 animate-spin" /> Connecting...</> : <><MessageCircle className="h-5 w-5" /> Chat with Seller</>}
                     </button>
                 </div>
             </div>
@@ -184,6 +189,7 @@ const ProductDetail = () => {
             ))}
         </div>
       </div>
+      <Toast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 };
